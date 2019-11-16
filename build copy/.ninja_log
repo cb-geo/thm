@@ -1,0 +1,9 @@
+# ninja log v5
+68	8182	1571289093	CMakeFiles/SogaGeothermalHPC.dir/src/main.cc.o	c09fbe3e8abe750a
+8182	10631	1571289095	SogaGeothermalHPC	b7ce57dc367b3596
+50	14632	1573501098	CMakeFiles/SogaGeothermalHPC.dir/src/Geothermal.cc.o	5184a68eea7257bf
+14633	18364	1573501102	SogaGeothermalHPC	a029e7a8eac13fea
+66	12407	1573501125	CMakeFiles/SogaGeothermalHPC.dir/src/Geothermal.cc.o	5184a68eea7257bf
+12408	15859	1573501128	SogaGeothermalHPC	a029e7a8eac13fea
+312	24652	1573526725	CMakeFiles/SogaGeothermalHPC.dir/src/Geothermal.cc.o	5184a68eea7257bf
+24654	30040	1573526731	SogaGeothermalHPC	a029e7a8eac13fea

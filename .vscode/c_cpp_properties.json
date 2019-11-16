@@ -1,0 +1,35 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/usr/lib/petscdir/3.7.7/x86_64-linux-gnu-real/include/petsc/mpiuni",
+                "/usr/lib/petscdir/3.7.7/x86_64-linux-gnu-real/include",
+                "/usr/include/trilinos",
+                "/home/shyaan/SogaGeothermalHPC/include",
+                "/usr/include/deal.II",
+                "/usr/include"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "clang-x64",
+            "compileCommands": "${workspaceFolder}/build/compile_commands.json",
+            "compilerArgs": [],
+            "browse": {
+                "path": [
+                    "${workspaceFolder}/**",
+                    "/usr/lib/petscdir/3.7.7/x86_64-linux-gnu-real/include/petsc/mpiuni",
+                    "/usr/lib/petscdir/3.7.7/x86_64-linux-gnu-real/include",
+                    "/usr/include/trilinos",
+                    "/home/shyaan/SogaGeothermalHPC/include",
+                    "/usr/include/deal.II"
+                ],
+                "limitSymbolsToIncludedHeaders": true
+            }
+        }
+    ],
+    "version": 4
+}
