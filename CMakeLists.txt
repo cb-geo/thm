@@ -54,15 +54,15 @@ if (${deal.II_FOUND})
   include_directories(${DEAL_II_DIR}/include/)
 endif()
 
-# Include directories
-include_directories(BEFORE
-  ${thm_SOURCE_DIR}/include/
-  ${thm_SOURCE_DIR}/external/
-)
-
 #thm executable
 SET(thm_src
   ./src/main.cc
+)
+
+# Include directories
+include_directories(
+  ./include/
+  ./external/
 )
 
 SET(TARGET_SRC ${thm_src})

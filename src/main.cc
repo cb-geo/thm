@@ -1,16 +1,12 @@
 #include "geothermal.h"
 
-int main(int argc, char *argv[])
-{
-  try
-  {
+int main(int argc, char* argv[]) {
+  try {
     using namespace dealii;
 
-    Goethermal<3> geothermal;
+    Geothermal<3> geothermal;
     geothermal.run();
-  }
-  catch (std::exception &exc)
-  {
+  } catch (std::exception& exc) {
     std::cerr << std::endl
               << std::endl
               << "----------------------------------------------------"
@@ -22,9 +18,7 @@ int main(int argc, char *argv[])
               << std::endl;
 
     return 1;
-  }
-  catch (...)
-  {
+  } catch (...) {
     std::cerr << std::endl
               << std::endl
               << "----------------------------------------------------"
@@ -35,6 +29,4 @@ int main(int argc, char *argv[])
               << std::endl;
     return 1;
   }
-
-  return 0;
 }
