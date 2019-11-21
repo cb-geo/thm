@@ -8,6 +8,7 @@
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/solver_gmres.h>
 #include <deal.II/lac/solver_cg.h>
+#include <deal.II/lac/block_sparse_matrix.h>
 #include <deal.II/lac/block_sparsity_pattern.h>
 #include <deal.II/lac/constraint_matrix.h>
 
@@ -221,8 +222,8 @@ double VelocityBoundaryValues<dim>::value(const Point<dim> &p,
 }
 
 template <int dim>
-void VelocityRightHandSide<dim>::vector_value(const Point<dim> &p,
-                                              Vector<double> &values) const
+void VelocityBoundaryValues<dim>::vector_value(const Point<dim> &p,
+                                               Vector<double> &values) const
 {
   for (unsigned int c = 0; c < this->n_components; ++c)
     values(c) = VelocityRightHandSide<dim>::value(p, c);
@@ -420,4 +421,4 @@ Goethermal<dim>::Goethermal()
 {
 }
 
-#endif 
+#endif
