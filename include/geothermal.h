@@ -15,6 +15,7 @@
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/grid_refinement.h>
 #include <deal.II/grid/grid_tools.h>
+#include <deal.II/grid/grid_in.h>
 #include <deal.II/grid/tria.h>
 #include <deal.II/grid/tria_accessor.h>
 #include <deal.II/grid/tria_iterator.h>
@@ -295,7 +296,7 @@ class Geothermal {
   void run(){};
 
  private:
-  void make_grid();
+  void grid_input();
   void setup_dofs();
   void assemble_preconditioner();
   void build_preconditioner();
@@ -326,7 +327,6 @@ class Geothermal {
   const unsigned int flow_degree;
   FESystem<dim> flow_fe;
   DoFHandler<dim> flow_dof_handler;
-  ConstraintMatrix flow_constraints;
 
   BlockSparseMatrix<double> flow_matrix;
   BlockSparseMatrix<double> flow_preconditioner_matrix;
@@ -378,5 +378,35 @@ Geothermal<dim>::Geothermal()
       rebuild_flow_matrix(true),
       rebuild_temperature_matrices(true),
       rebuild_flow_preconditioner(true) {}
+
+template <int dim>
+void Geothermal<dim>::grid_input(){
+  GridIn<dim> gridin;
+  gridin.attach_triangulation(triangulation);
+  std::ifstream f("mesh.msh");
+  gridin.read_msh();
+  print_mesh_inf(triangulation, "grid-1.eps");
+}
+
+template <int dim>
+void Geothermal<dim> :: setup_dofs()
+{
+  std::vector<unsigned int> flow_sub_block(dim + 1, 0);
+  flow_sub_block[dim] = 1;
+
+  flow_dof_handler.distribute_dofs(flow_fe);
+  DoFRenumbering::component_wise(flow_dof_handler,flow_sub_block);
+
+  temperature_dof_handler.distribute_dofs(temperature_fe);
+  temperature_constraints.clear();
+    
+  std::vector<types::global_dof_index> flow_dofs_per_block(2);
+  DoFTools::count_dofs_per_block(flow_dof_handler,flow_dofs_per_block,flow_sub_block);
+
+  const unsigned int n_u = flow_dofs_per_block[0],
+                     n_p = flow_dofs_per_block[1],
+                     n_T = temperature_dof_handler.n_dofs();
+
+}
 
 #endif
