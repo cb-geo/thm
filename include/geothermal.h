@@ -43,7 +43,8 @@
 using namespace dealii;
 
 // for setting parameters
-namespace EquationData {
+namespace EquationData
+{
 const double eta = 1;
 const double kappa = 1e-6;
 const double beta = 10;
@@ -52,25 +53,28 @@ const double density = 1;
 // iniital value for temparature --- value at point, forming vector for diff
 // points
 template <int dim>
-class TemperatureInitialValues : public Function<dim> {
- public:
+class TemperatureInitialValues : public Function<dim>
+{
+public:
   TemperatureInitialValues() : Function<dim>(1) {}
 
-  virtual double value(const Point<dim>& p,
+  virtual double value(const Point<dim> &p,
                        const unsigned int component = 0) const;
 
-  virtual void vector_value(const Point<dim>& p, Vector<double>& value) const;
+  virtual void vector_value(const Point<dim> &p, Vector<double> &value) const;
 };
 
 template <int dim>
-double TemperatureInitialValues<dim>::value(const Point<dim>&,
-                                            const unsigned int) const {
+double TemperatureInitialValues<dim>::value(const Point<dim> &,
+                                            const unsigned int) const
+{
   return 0;
 }
 
 template <int dim>
-void TemperatureInitialValues<dim>::vector_value(const Point<dim>& p,
-                                                 Vector<double>& values) const {
+void TemperatureInitialValues<dim>::vector_value(const Point<dim> &p,
+                                                 Vector<double> &values) const
+{
   for (unsigned int c = 0; c < this->n_components; ++c)
     values(c) = TemperatureInitialValues<dim>::value(p, c);
 }
@@ -78,25 +82,28 @@ void TemperatureInitialValues<dim>::vector_value(const Point<dim>& p,
 // right hand side for temperature, value at point, forming vector for diff
 // points
 template <int dim>
-class TemperatureRightHandSide : public Function<dim> {
- public:
+class TemperatureRightHandSide : public Function<dim>
+{
+public:
   TemperatureRightHandSide() : Function<dim>(1) {}
 
-  virtual double value(const Point<dim>& p,
+  virtual double value(const Point<dim> &p,
                        const unsigned int component = 0) const;
 
-  virtual void vector_value(const Point<dim>& p, Vector<double>& value) const;
+  virtual void vector_value(const Point<dim> &p, Vector<double> &value) const;
 };
 
 template <int dim>
 double TemperatureRightHandSide<dim>::value(
-    const Point<dim>& p, const unsigned int component) const {
+    const Point<dim> &p, const unsigned int component) const
+{
   return 0;
 }
 
 template <int dim>
-void TemperatureRightHandSide<dim>::vector_value(const Point<dim>& p,
-                                                 Vector<double>& values) const {
+void TemperatureRightHandSide<dim>::vector_value(const Point<dim> &p,
+                                                 Vector<double> &values) const
+{
   for (unsigned int c = 0; c < this->n_components; ++c)
     values(c) = TemperatureRightHandSide<dim>::value(p, c);
 }
@@ -104,175 +111,193 @@ void TemperatureRightHandSide<dim>::vector_value(const Point<dim>& p,
 ///////////////////////////////////////////
 // boudnary value for temperature
 template <int dim>
-class TemperatureBoundaryValues : public Function<dim> {
- public:
+class TemperatureBoundaryValues : public Function<dim>
+{
+public:
   TemperatureBoundaryValues() : Function<dim>(1) {}
-  virtual double value(const Point<dim>& p,
+  virtual double value(const Point<dim> &p,
                        const unsigned int component = 0) const;
 };
 
 template <int dim>
 double TemperatureBoundaryValues<dim>::value(
-    const Point<dim>& p, const unsigned int component) const {
+    const Point<dim> &p, const unsigned int component) const
+{
   return 0;
 }
 
 // right hand side for pressure, value at point, forming vector for diff points
 template <int dim>
-class PressureRightHandSide : public Function<dim> {
- public:
+class PressureRightHandSide : public Function<dim>
+{
+public:
   PressureRightHandSide() : Function<dim>(1) {}
 
-  virtual double value(const Point<dim>& p,
+  virtual double value(const Point<dim> &p,
                        const unsigned int component = 0) const;
 
-  virtual void vector_value(const Point<dim>& p, Vector<double>& value) const;
+  virtual void vector_value(const Point<dim> &p, Vector<double> &value) const;
 };
 
 template <int dim>
-double PressureRightHandSide<dim>::value(const Point<dim>& p,
-                                         const unsigned int component) const {
+double PressureRightHandSide<dim>::value(const Point<dim> &p,
+                                         const unsigned int component) const
+{
   return 0;
 }
 
 template <int dim>
-void PressureRightHandSide<dim>::vector_value(const Point<dim>& p,
-                                              Vector<double>& values) const {
+void PressureRightHandSide<dim>::vector_value(const Point<dim> &p,
+                                              Vector<double> &values) const
+{
   for (unsigned int c = 0; c < this->n_components; ++c)
     values(c) = PressureRightHandSide<dim>::value(p, c);
 }
 
 // boudnary value for Pressure
 template <int dim>
-class PressureBoundaryValues : public Function<dim> {
- public:
+class PressureBoundaryValues : public Function<dim>
+{
+public:
   PressureBoundaryValues() : Function<dim>(1) {}
-  virtual double value(const Point<dim>& p,
+  virtual double value(const Point<dim> &p,
                        const unsigned int component = 0) const;
 };
 
 template <int dim>
-double PressureBoundaryValues<dim>::value(const Point<dim>& p,
-                                          const unsigned int component) const {
+double PressureBoundaryValues<dim>::value(const Point<dim> &p,
+                                          const unsigned int component) const
+{
   return 0;
 }
 
 // right hand side for Velocity, value at point, forming vector for diff points
 template <int dim>
-class VelocityRightHandSide : public Function<dim> {
- public:
+class VelocityRightHandSide : public Function<dim>
+{
+public:
   VelocityRightHandSide() : Function<dim>(1) {}
 
-  virtual double value(const Point<dim>& p,
+  virtual double value(const Point<dim> &p,
                        const unsigned int component = 0) const;
 
-  virtual void vector_value(const Point<dim>& p, Vector<double>& value) const;
+  virtual void vector_value(const Point<dim> &p, Vector<double> &value) const;
 };
 
 template <int dim>
-double VelocityRightHandSide<dim>::value(const Point<dim>& p,
-                                         const unsigned int component) const {
+double VelocityRightHandSide<dim>::value(const Point<dim> &p,
+                                         const unsigned int component) const
+{
   return 0;
 }
 
 template <int dim>
-void VelocityRightHandSide<dim>::vector_value(const Point<dim>& p,
-                                              Vector<double>& values) const {
+void VelocityRightHandSide<dim>::vector_value(const Point<dim> &p,
+                                              Vector<double> &values) const
+{
   for (unsigned int c = 0; c < this->n_components; ++c)
     values(c) = VelocityRightHandSide<dim>::value(p, c);
 }
 
 // boudnary value for Velocity
 template <int dim>
-class VelocityBoundaryValues : public Function<dim> {
- public:
+class VelocityBoundaryValues : public Function<dim>
+{
+public:
   VelocityBoundaryValues() : Function<dim>(1) {}
-  virtual double value(const Point<dim>& p,
+  virtual double value(const Point<dim> &p,
                        const unsigned int component = 0) const;
 
-  virtual void vector_value(const Point<dim>& p, Vector<double>& value) const;
+  virtual void vector_value(const Point<dim> &p, Vector<double> &value) const;
 };
 
 template <int dim>
-double VelocityBoundaryValues<dim>::value(const Point<dim>& p,
-                                          const unsigned int component) const {
+double VelocityBoundaryValues<dim>::value(const Point<dim> &p,
+                                          const unsigned int component) const
+{
   return 0;
 }
 
 template <int dim>
-void VelocityBoundaryValues<dim>::vector_value(const Point<dim>& p,
-                                               Vector<double>& values) const {
+void VelocityBoundaryValues<dim>::vector_value(const Point<dim> &p,
+                                               Vector<double> &values) const
+{
   for (unsigned int c = 0; c < this->n_components; ++c)
     values(c) = VelocityRightHandSide<dim>::value(p, c);
 }
 
 //////////////////////////////////////////////
 
-}  // namespace EquationData
+} // namespace EquationData
 
-namespace LinearSolvers {
+namespace LinearSolvers
+{
 
 // class for calcuating inverse matrix
 template <class MatrixType, class PreconditionerType>
-class InverseMatrix : public Subscriptor {
- public:
+class InverseMatrix : public Subscriptor
+{
+public:
   // inverse matrix
-  InverseMatrix(const MatrixType& m, const PreconditionerType& preconditioner);
+  InverseMatrix(const MatrixType &m, const PreconditionerType &preconditioner);
 
   // vector multiply
   template <typename VectorType>
-  void vmult(VectorType& dst, const VectorType& src) const;
+  void vmult(VectorType &dst, const VectorType &src) const;
 
- private:
+private:
   const SmartPointer<const MatrixType> matrix;
-  const PreconditionerType& preconditioner;
+  const PreconditionerType &preconditioner;
 };
 
 template <class MatrixType, class PreconditionerType>
 InverseMatrix<MatrixType, PreconditionerType>::InverseMatrix(
-    const MatrixType& m, const PreconditionerType& preconditioner)
+    const MatrixType &m, const PreconditionerType &preconditioner)
     : matrix(&m), preconditioner(preconditioner) {}
 
 // using cg to calculate the inverse of the matrix
 template <class MatrixType, class PreconditionerType>
 template <typename VectorType>
 void InverseMatrix<MatrixType, PreconditionerType>::vmult(
-    VectorType& dst, const VectorType& src) const {
+    VectorType &dst, const VectorType &src) const
+{
   SolverControl solver_control(src.size(), 1e-7 * src.l2_norm());
   SolverCG<VectorType> cg(solver_control);
 
   dst = 0;
 
-  try {
+  try
+  {
     cg.solve(*matrix, dst, src, preconditioner);
-  } catch (std::exception& e) {
+  }
+  catch (std::exception &e)
+  {
     Assert(false, ExcMessage(e.what()));
   }
 }
 
 // Schur complement preconditioner
 template <class PreconditionerType>
-class SchurComplement : public Subscriptor {
- public:
+class SchurComplement : public Subscriptor
+{
+public:
   SchurComplement(
-      const BlockSparseMatrix<double>& system_matrix,
-      const InverseMatrix<SparseMatrix<double>, PreconditionerType>& M_inverse);
+      const BlockSparseMatrix<double> &system_matrix,
+      const InverseMatrix<SparseMatrix<double>, PreconditionerType> &M_inverse);
 
-  void vmult(Vector<double>& dst, const Vector<double>& src) const;
+  void vmult(Vector<double> &dst, const Vector<double> &src) const;
 
- private:
+private:
   const SmartPointer<const BlockSparseMatrix<double>> system_matrix;
-  const SmartPointer<
-      const InverseMatrix<SparseMatrix<double>, PreconditionerType>>
-      M_inverse;
+  const SmartPointer<const InverseMatrix<SparseMatrix<double>, PreconditionerType>> M_inverse;
 
   mutable Vector<double> tmp1, tmp2;
 };
 
 template <class PreconditionerType>
 SchurComplement<PreconditionerType>::SchurComplement(
-    const BlockSparseMatrix<double>& system_matrix,
-    const InverseMatrix<SparseMatrix<double>, PreconditionerType>& M_inverse)
+    const BlockSparseMatrix<double> &system_matrix,
+    const InverseMatrix<SparseMatrix<double>, PreconditionerType> &M_inverse)
     : system_matrix(&system_matrix),
       M_inverse(&M_inverse),
       tmp1(system_matrix.block(0, 0).m()),
@@ -280,22 +305,24 @@ SchurComplement<PreconditionerType>::SchurComplement(
 
 template <class PreconditionerType>
 void SchurComplement<PreconditionerType>::vmult(
-    Vector<double>& dst, const Vector<double>& src) const {
+    Vector<double> &dst, const Vector<double> &src) const
+{
   system_matrix->block(0, 1).vmult(tmp1, src);
   M_inverse->vmult(tmp2, tmp1);
   system_matrix->block(1, 0).vmult(dst, tmp2);
 }
 
-}  // namespace LinearSolvers
+} // namespace LinearSolvers
 
 // Geothermal
 template <int dim>
-class Geothermal {
- public:
+class Geothermal
+{
+public:
   Geothermal();
   void run(){};
 
- private:
+private:
   void grid_input();
   void setup_dofs();
   void assemble_preconditioner();
@@ -310,15 +337,15 @@ class Geothermal {
   void refine_mesh(const unsigned int max_grid_level);
 
   double compute_viscosity(
-      const std::vector<double>& old_temperature,
-      const std::vector<double>& old_old_temperature,
-      const std::vector<Tensor<1, dim>>& old_temperature_grads,
-      const std::vector<Tensor<1, dim>>& old_old_temperature_grads,
-      const std::vector<double>& old_temperature_laplacians,
-      const std::vector<double>& old_old_temperature_laplacians,
-      const std::vector<Tensor<1, dim>>& old_velocity_values,
-      const std::vector<Tensor<1, dim>>& old_old_velocity_values,
-      const std::vector<double>& gamma_values, const double global_u_infty,
+      const std::vector<double> &old_temperature,
+      const std::vector<double> &old_old_temperature,
+      const std::vector<Tensor<1, dim>> &old_temperature_grads,
+      const std::vector<Tensor<1, dim>> &old_old_temperature_grads,
+      const std::vector<double> &old_temperature_laplacians,
+      const std::vector<double> &old_old_temperature_laplacians,
+      const std::vector<Tensor<1, dim>> &old_velocity_values,
+      const std::vector<Tensor<1, dim>> &old_old_velocity_values,
+      const std::vector<double> &gamma_values, const double global_u_infty,
       const double global_T_variation, const double cell_diameter) const;
 
   Triangulation<dim> triangulation;
@@ -338,7 +365,6 @@ class Geothermal {
   const unsigned int temperature_degree;
   FE_Q<dim> temperature_fe;
   DoFHandler<dim> temperature_dof_handler;
-  ConstraintMatrix temperature_constraints;
 
   SparseMatrix<double> temperature_mass_matrix;
   SparseMatrix<double> temperature_stiffness_matrix;
@@ -377,10 +403,13 @@ Geothermal<dim>::Geothermal()
       timestep_number(0),
       rebuild_flow_matrix(true),
       rebuild_temperature_matrices(true),
-      rebuild_flow_preconditioner(true) {}
+      rebuild_flow_preconditioner(true)
+{
+}
 
 template <int dim>
-void Geothermal<dim>::grid_input(){
+void Geothermal<dim>::grid_input()
+{
   GridIn<dim> gridin;
   gridin.attach_triangulation(triangulation);
   std::ifstream f("mesh.msh");
@@ -389,24 +418,144 @@ void Geothermal<dim>::grid_input(){
 }
 
 template <int dim>
-void Geothermal<dim> :: setup_dofs()
+void Geothermal<dim>::setup_dofs()
 {
   std::vector<unsigned int> flow_sub_block(dim + 1, 0);
   flow_sub_block[dim] = 1;
 
   flow_dof_handler.distribute_dofs(flow_fe);
-  DoFRenumbering::component_wise(flow_dof_handler,flow_sub_block);
+  DoFRenumbering::component_wise(flow_dof_handler, flow_sub_block);
 
   temperature_dof_handler.distribute_dofs(temperature_fe);
   temperature_constraints.clear();
-    
+
   std::vector<types::global_dof_index> flow_dofs_per_block(2);
-  DoFTools::count_dofs_per_block(flow_dof_handler,flow_dofs_per_block,flow_sub_block);
+  DoFTools::count_dofs_per_block(flow_dof_handler, flow_dofs_per_block, flow_sub_block);
 
   const unsigned int n_u = flow_dofs_per_block[0],
                      n_p = flow_dofs_per_block[1],
                      n_T = temperature_dof_handler.n_dofs();
+}
 
+template <int dim>
+double Geothermal<dim>::get_maximal_velocity() const
+{
+  const QIterated<dim> quadrature_formula(QTrapez<1>(), flow_degree + 1);
+  const unsigned int n_q_points = quadrature_formula.size();
+  FEValues<dim> fe_values(flow_fe, quadrature_formula, update_values);
+  std::vector<Tensor<1, dim>> velocity_values(n_q_points);
+  double max_velocity = 0;
+  const FEValuesExtractors::Vector velocities(0);
+  for (const auto &cell : flow_dof_handler.active_cell_iterators())
+  {
+    fe_values.reinit(cell);
+    fe_values[velocities].get_function_values(stokes_solution,
+                                              velocity_values);
+    for (unsigned int q = 0; q < n_q_points; ++q)
+      max_velocity = std::max(max_velocity, velocity_values[q].norm());
+  }
+  return max_velocity;
 }
 
 #endif
+
+template <int dim>
+std::pair<double, double>
+Geothermal<dim>::get_extrapolated_temperature_range() const
+{
+  const QIterated<dim> quadrature_formula(QTrapez<1>(), temperature_degree);
+  const unsigned int n_q_points = quadrature_formula.size();
+  FEValues<dim> fe_values(temperature_fe, quadrature_formula, update_values);
+  std::vector<double> old_temperature_values(n_q_points);
+  std::vector<double> old_old_temperature_values(n_q_points);
+  if (timestep_number != 0)
+  {
+    double min_temperature = std::numeric_limits<double>::max(),
+           max_temperature = -std::numeric_limits<double>::max();
+    for (const auto &cell : temperature_dof_handler.active_cell_iterators())
+    {
+      fe_values.reinit(cell);
+      fe_values.get_function_values(old_temperature_solution,
+                                    old_temperature_values);
+      fe_values.get_function_values(old_old_temperature_solution,
+                                    old_old_temperature_values);
+      for (unsigned int q = 0; q < n_q_points; ++q)
+      {
+        const double temperature =
+            (1. + time_step / old_time_step) * old_temperature_values[q] -
+            time_step / old_time_step * old_old_temperature_values[q];
+        min_temperature = std::min(min_temperature, temperature);
+        max_temperature = std::max(max_temperature, temperature);
+      }
+    }
+    return std::make_pair(min_temperature, max_temperature);
+  }
+  else
+  {
+    double min_temperature = std::numeric_limits<double>::max(),
+           max_temperature = -std::numeric_limits<double>::max();
+    for (const auto &cell : temperature_dof_handler.active_cell_iterators())
+    {
+      fe_values.reinit(cell);
+      fe_values.get_function_values(old_temperature_solution,
+                                    old_temperature_values);
+      for (unsigned int q = 0; q < n_q_points; ++q)
+      {
+        const double temperature = old_temperature_values[q];
+        min_temperature = std::min(min_temperature, temperature);
+        max_temperature = std::max(max_temperature, temperature);
+      }
+    }
+    return std::make_pair(min_temperature, max_temperature);
+  }
+}
+
+template <int dim>
+double Geothermal<dim>::compute_viscosity(
+    const std::vector<double> &old_temperature,
+    const std::vector<double> &old_old_temperature,
+    const std::vector<Tensor<1, dim>> &old_temperature_grads,
+    const std::vector<Tensor<1, dim>> &old_old_temperature_grads,
+    const std::vector<double> &old_temperature_laplacians,
+    const std::vector<double> &old_old_temperature_laplacians,
+    const std::vector<Tensor<1, dim>> &old_velocity_values,
+    const std::vector<Tensor<1, dim>> &old_old_velocity_values,
+    const std::vector<double> &gamma_values,
+    const double global_u_infty,
+    const double global_T_variation,
+    const double cell_diameter) const
+{
+  constexpr double beta = 0.017 * dim;
+  constexpr double alpha = 1.0;
+  if (global_u_infty == 0)
+    return 5e-3 * cell_diameter;
+  const unsigned int n_q_points = old_temperature.size();
+  double max_residual = 0;
+  double max_velocity = 0;
+  for (unsigned int q = 0; q < n_q_points; ++q)
+  {
+    const Tensor<1, dim> u =
+        (old_velocity_values[q] + old_old_velocity_values[q]) / 2;
+    const double dT_dt =
+        (old_temperature[q] - old_old_temperature[q]) / old_time_step;
+    const double u_grad_T =
+        u * (old_temperature_grads[q] + old_old_temperature_grads[q]) / 2;
+    const double kappa_Delta_T =
+        EquationData::kappa *
+        (old_temperature_laplacians[q] + old_old_temperature_laplacians[q]) /
+        2;
+    const double residual =
+        std::abs((dT_dt + u_grad_T - kappa_Delta_T - gamma_values[q]) *
+                 std::pow((old_temperature[q] + old_old_temperature[q]) / 2,
+                          alpha - 1.));
+    max_residual = std::max(residual, max_residual);
+    max_velocity = std::max(std::sqrt(u * u), max_velocity);
+  }
+  const double c_R = std::pow(2., (4. - 2 * alpha) / dim);
+  const double global_scaling = c_R * global_u_infty * global_T_variation *
+                                std::pow(global_Omega_diameter, alpha - 2.);
+  return (
+      beta * max_velocity *
+      std::min(cell_diameter,
+               std::pow(cell_diameter, alpha) * max_residual / global_scaling));
+}
