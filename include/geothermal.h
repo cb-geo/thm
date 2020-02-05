@@ -420,6 +420,8 @@ void Geothermal<dim>::grid_input()
 template <int dim>
 void Geothermal<dim>::setup_dofs()
 {
+
+  //flow matrix
   std::vector<unsigned int> flow_sub_block(dim + 1, 0);
   flow_sub_block[dim] = 1;
 
@@ -435,6 +437,71 @@ void Geothermal<dim>::setup_dofs()
   const unsigned int n_u = flow_dofs_per_block[0],
                      n_p = flow_dofs_per_block[1],
                      n_T = temperature_dof_handler.n_dofs();
+  std::cout << "Number of active cells: " << triangulation.n_active_cells()
+            << " (on " << triangulation.n_levels() << " levels)" << std::endl
+            << "Number of degrees of freedom: " << n_u + n_p + n_T << " ("
+            << n_u << '+' << n_p << '+' << n_T << ')' << std::endl
+            << std::endl;
+  BlockDynamicSparsityPattern dsp(2, 2);
+  dsp.block(0, 0).reinit(n_u, n_u);
+  dsp.block(1, 0).reinit(n_p, n_u);
+  dsp.block(0, 1).reinit(n_u, n_p);
+  dsp.block(1, 1).reinit(n_p, n_p);
+  dsp.collect_sizes();
+
+  Table<2, DoFTools::Coupling> coupling(dim + 1, dim + 1);
+  for (unsigned int c = 0; c < dim + 1; ++c)
+    for (unsigned int d = 0; d < dim + 1; ++d)
+      if (!((c == dim) && (d == dim)))
+        coupling[c][d] = DoFTools::always;
+      else
+        coupling[c][d] = DoFTools::none;
+  DoFTools::make_sparsity_pattern(
+      flow_dof_handler, coupling, dsp, constraints, false);
+  sparsity_pattern.copy_from(dsp);
+  flow_matrix.reinit(sparsity_pattern);
+
+  //flow preconidtioner matrix
+  BlockDynamicSparsityPattern preconditioner_dsp(2, 2);
+  preconditioner_dsp.block(0, 0).reinit(n_u, n_u);
+  preconditioner_dsp.block(1, 0).reinit(n_p, n_u);
+  preconditioner_dsp.block(0, 1).reinit(n_u, n_p);
+  preconditioner_dsp.block(1, 1).reinit(n_p, n_p);
+  preconditioner_dsp.collect_sizes();
+  Table<2, DoFTools::Coupling> preconditioner_coupling(dim + 1, dim + 1);
+  for (unsigned int c = 0; c < dim + 1; ++c)
+    for (unsigned int d = 0; d < dim + 1; ++d)
+      if (((c == dim) && (d == dim)))
+        preconditioner_coupling[c][d] = DoFTools::always;
+      else
+        preconditioner_coupling[c][d] = DoFTools::none;
+  DoFTools::make_sparsity_pattern(flow_dof_handler,
+                                  preconditioner_coupling,
+                                  preconditioner_dsp,
+                                  constraints,
+                                  false);
+  preconditioner_sparsity_pattern.copy_from(preconditioner_dsp);
+  flow_preconditioner_matrix.reinit(preconditioner_sparsity_pattern);
+
+  // temperature matrix
+  DynamicSparsityPattern dsp(n_T, n_T);
+  DoFTools::make_sparsity_pattern(temperature_dof_handler,
+                                  dsp,
+                                  temperature_constraints,
+                                  false);
+  temperature_matrix.reinit(dsp);
+  temperature_mass_matrix.reinit(temperature_matrix);
+  temperature_stiffness_matrix.reinit(temperature_matrix);
+
+  //initialization of solution and rhs
+  solution.reinit(2);
+  solution.block(0).reinit(n_u);
+  solution.block(1).reinit(n_p);
+  solution.collect_sizes();
+  system_rhs.reinit(2);
+  system_rhs.block(0).reinit(n_u);
+  system_rhs.block(1).reinit(n_p);
+  system_rhs.collect_sizes();
 }
 
 template <int dim>
