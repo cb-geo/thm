@@ -1,11 +1,17 @@
+#include "initialvalues.h"
+#include "boundaryvalues.h"
+#include "righthandside.h"
 #include "geothermal.h"
-int main() {
-  try {
+int main()
+{
+  try
+  {
     using namespace dealii;
-    using namespace Geothermal;
     HeatEquation<3> heat_equation_solver;
     heat_equation_solver.run();
-  } catch (std::exception& exc) {
+  }
+  catch (std::exception &exc)
+  {
     std::cerr << std::endl
               << std::endl
               << "----------------------------------------------------"
@@ -16,7 +22,9 @@ int main() {
               << "----------------------------------------------------"
               << std::endl;
     return 1;
-  } catch (...) {
+  }
+  catch (...)
+  {
     std::cerr << std::endl
               << std::endl
               << "----------------------------------------------------"
