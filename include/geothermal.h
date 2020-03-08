@@ -104,9 +104,9 @@ double
 PressureRightHandSide<dim>::value(const Point<dim> &p,
                                   const unsigned int component) const
 {
-  (void)component;
-  Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
-  Assert(dim == 3, ExcNotImplemented());
+  // (void)component;
+  // Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
+  // Assert(dim == 3, ExcNotImplemented());
   const double time = this->get_time(); // get time
   return 0.;
 }
@@ -138,9 +138,9 @@ double PressureBoundaryValues<dim>::value(const Point<dim> &p,
                                           const unsigned int /*component*/) const
 {
 
-  (void)component;
-  Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
-  Assert(dim == 3, ExcNotImplemented());
+  // (void)component;
+  // Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
+  // Assert(dim == 3, ExcNotImplemented());
   const double time = this->get_time(); // get time
   return p0;
 }
@@ -194,9 +194,9 @@ double
 TemperatureRightHandSide<dim>::value(const Point<dim> &p,
                                      const unsigned int component) const
 {
-  (void)component;
-  Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
-  Assert(dim == 3, ExcNotImplemented());
+  // (void)component;
+  // Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
+  // Assert(dim == 3, ExcNotImplemented());
   const double time = this->get_time(); // get time
   return 0.;
 }
@@ -213,7 +213,7 @@ template <int dim>
 class TemperatureBoundaryValues : public Function<dim>
 {
 public:
-  TemperatureBoundaryValues() : Function<dim>(1) {} // 之前的没有
+  TemperatureBoundaryValues() : Function<dim>(1), period(0.2) {} // 之前的没有
   virtual double value(const Point<dim> &p,
                        const unsigned int component = 0) const; // boundary
   virtual void vector_value(const Point<dim> &p,                //之前的没有
@@ -228,9 +228,9 @@ double TemperatureBoundaryValues<dim>::value(const Point<dim> &p,
                                           const unsigned int /*component*/) const
 {
 
-  (void)component;
-  Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
-  Assert(dim == 3, ExcNotImplemented());
+  // (void)component;
+  // Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
+  // Assert(dim == 3, ExcNotImplemented());
 
   const double time = this->get_time();
   return T0 + 10. *
@@ -524,7 +524,7 @@ void HeatEquation<dim>::run()
         tmp); // system_rhs = system_rhs -(1 - theta) * time_step*tmp
               // 注意，这里system_rhs是一个vector，所以add是将两个元素相乘了
 
-    RightHandSide<dim> rhs_function;
+    EquationData::TemperatureRightHandSide<dim> rhs_function;
     rhs_function.set_time(time);
     VectorTools::create_right_hand_side(dof_handler, QGauss<dim>(fe.degree + 1),
                                         rhs_function, tmp);
