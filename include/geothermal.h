@@ -39,8 +39,6 @@
 
 #include <map>
 
-using namespace dealii;
-
 namespace Geothermal
 {
 using namespace dealii;
@@ -87,13 +85,18 @@ template <int dim>
 class PressureRightHandSide : public Function<dim>
 {
 public:
-  PressureRightHandSide() : Function<dim>(1) {}
+  PressureRightHandSide() : Function<dim>(1), period(0.2) {}
 
   virtual double value(const Point<dim> &p,
-                       const unsigned int component = 0) const;
+                       const unsigned int component = 0) const; // assign rhs
+                                                                // equal to zero
+                                                                // at each point
 
   virtual void vector_value(const Point<dim> &p,
                             Vector<double> &value) const;
+
+private:
+  const double period;
 };
 
 template <int dim>
@@ -101,6 +104,10 @@ double
 PressureRightHandSide<dim>::value(const Point<dim> &p,
                                   const unsigned int component) const
 {
+  (void)component;
+  Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
+  Assert(dim == 3, ExcNotImplemented());
+  const double time = this->get_time(); // get time
   return 0.;
 }
 
@@ -110,6 +117,32 @@ void PressureRightHandSide<dim>::vector_value(const Point<dim> &p,
 {
   for (unsigned int c = 0; c < this->n_components; ++c)
     values(c) = PressureRightHandSide<dim>::value(p, c);
+}
+
+template <int dim>
+class PressureBoundaryValues : public Function<dim>
+{
+public:
+  PressureBoundaryValues() : Function<dim>(1), period(0.2) {} // 之前的没有
+  virtual double value(const Point<dim> &p,
+                       const unsigned int component = 0) const; // boundary
+  virtual void vector_value(const Point<dim> &p,                //之前的没有
+                            Vector<double> &value) const;
+
+private:
+  const double period; // value
+};
+
+template <int dim>
+double PressureBoundaryValues<dim>::value(const Point<dim> &p,
+                                          const unsigned int /*component*/) const
+{
+
+  (void)component;
+  Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
+  Assert(dim == 3, ExcNotImplemented());
+  const double time = this->get_time(); // get time
+  return p0;
 }
 
 template <int dim>
@@ -144,13 +177,16 @@ template <int dim>
 class TemperatureRightHandSide : public Function<dim>
 {
 public:
-  TemperatureRightHandSide() : Function<dim>(1) {}
+  TemperatureRightHandSide() : Function<dim>(1), period(0.2) {}
 
   virtual double value(const Point<dim> &p,
                        const unsigned int component = 0) const;
 
   virtual void vector_value(const Point<dim> &p,
                             Vector<double> &value) const;
+
+private:
+  const double period;
 };
 
 template <int dim>
@@ -158,6 +194,10 @@ double
 TemperatureRightHandSide<dim>::value(const Point<dim> &p,
                                      const unsigned int component) const
 {
+  (void)component;
+  Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
+  Assert(dim == 3, ExcNotImplemented());
+  const double time = this->get_time(); // get time
   return 0.;
 }
 
@@ -167,6 +207,42 @@ void TemperatureRightHandSide<dim>::vector_value(const Point<dim> &p,
 {
   for (unsigned int c = 0; c < this->n_components; ++c)
     values(c) = TemperatureRightHandSide<dim>::value(p, c);
+}
+
+template <int dim>
+class TemperatureBoundaryValues : public Function<dim>
+{
+public:
+  TemperatureBoundaryValues() : Function<dim>(1) {} // 之前的没有
+  virtual double value(const Point<dim> &p,
+                       const unsigned int component = 0) const; // boundary
+  virtual void vector_value(const Point<dim> &p,                //之前的没有
+                            Vector<double> &value) const;
+
+private:
+  const double period; // value
+};
+
+template <int dim>
+double TemperatureBoundaryValues<dim>::value(const Point<dim> &p,
+                                          const unsigned int /*component*/) const
+{
+
+  (void)component;
+  Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
+  Assert(dim == 3, ExcNotImplemented());
+
+  const double time = this->get_time();
+  return T0 + 10. *
+                  sin(time * 3.1415926); // boundary value is set to zero in this case
+}
+
+template <int dim>
+void TemperatureBoundaryValues<dim>::vector_value(const Point<dim> &p,
+                                                 Vector<double> &values) const
+{
+  for (unsigned int c = 0; c < this->n_components; ++c)
+    values(c) = TemperatureBoundaryValues<dim>::value(p, c);
 }
 
 } // namespace EquationData
@@ -206,51 +282,51 @@ private:
   const double theta;
 };
 
-template <int dim>
-class RightHandSide : public Function<dim>
-{
-public:
-  RightHandSide() : Function<dim>(), period(0.2) {}
-  virtual double value(const Point<dim> &p,
-                       const unsigned int component = 0) const; // assign rhs
-                                                                // equal to zero
-                                                                // at each point
+// template <int dim>
+// class RightHandSide : public Function<dim>
+// {
+// public:
+//   RightHandSide() : Function<dim>(), period(0.2) {}
+//   virtual double value(const Point<dim> &p,
+//                        const unsigned int component = 0) const; // assign rhs
+//                                                                 // equal to zero
+//                                                                 // at each point
 
-private:
-  const double period;
-};
+// private:
+//   const double period;
+// };
 
-template <int dim>
-class BoundaryValues : public Function<dim>
-{
-public:
-  virtual double value(const Point<dim> &p,
-                       const unsigned int component = 0) const; // boundary
-                                                                // value
-};
+// template <int dim>
+// class BoundaryValues : public Function<dim>
+// {
+// public:
+//   virtual double value(const Point<dim> &p,
+//                        const unsigned int component = 0) const; // boundary
+//                                                                 // value
+// };
 
-template <int dim>
-double RightHandSide<dim>::value(const Point<dim> &p,
-                                 const unsigned int component) const
-{
-  (void)component;
-  Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
-  Assert(dim == 3, ExcNotImplemented());
+// template <int dim>
+// double RightHandSide<dim>::value(const Point<dim> &p,
+//                                  const unsigned int component) const
+// {
+//   (void)component;
+//   Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
+//   Assert(dim == 3, ExcNotImplemented());
 
-  const double time = this->get_time(); // get time
-  return 0;
-}
+//   const double time = this->get_time(); // get time
+//   return 0;
+// }
 
-template <int dim>
-double BoundaryValues<dim>::value(const Point<dim> &p,
-                                  const unsigned int /*component*/) const
-{
-  // (void)component;
-  // Assert(component == 0, ExcIndexRange(component, 0, 1));
-  const double time = this->get_time();
-  return 10. *
-         sin(time * 3.1415926); // boundary value is set to zero in this case
-}
+// template <int dim>
+// double BoundaryValues<dim>::value(const Point<dim> &p,
+//                                   const unsigned int /*component*/) const
+// {
+//   // (void)component;
+//   // Assert(component == 0, ExcIndexRange(component, 0, 1));
+//   const double time = this->get_time();
+//   return 10. *
+//          sin(time * 3.1415926); // boundary value is set to zero in this case
+// }
 
 template <int dim>
 HeatEquation<dim>::HeatEquation() // initialization
@@ -474,7 +550,7 @@ void HeatEquation<dim>::run()
     constraints.condense(system_matrix, system_rhs); // 压缩
 
     {
-      BoundaryValues<dim> boundary_values_function; // creat boundary value
+      EquationData::TemperatureBoundaryValues<dim> boundary_values_function; // creat boundary value
                                                     // object
       boundary_values_function.set_time(time);      // set the proper time
 
