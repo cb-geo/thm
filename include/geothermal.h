@@ -125,213 +125,76 @@ void print_mesh_info(const Triangulation<dim>& triangulation,
   std::cout << " written to " << filename << std::endl << std::endl;
 }
 
+
 template <int dim>
-void HeatEquation<dim>::make_grid_and_dofs() {
+void HeatEquation<dim>::make_grid_and_dofs()
+{
   GridIn<dim> gridin;
   gridin.attach_triangulation(triangulation);
   std::ifstream f("mesh.msh");
   gridin.read_msh(f);
 
   print_mesh_info(triangulation, "grid-1.eps");
-
-  dof_handler.distribute_dofs(fe);  // distribute dofs to grid
-  DoFRenumbering::component_wise(dof_handler);
-
-  std::vector<types::global_dof_index> dofs_per_component(
-      2);  // 0 for pressure, 1 for temperature
-  DoFTools::count_dofs_per_component(dof_handler, dofs_per_component);
-  const unsigned int n_p = dofs_per_component[0], n_T = dofs_per_component[1];
-
-
-std::cout << "Number of active cells: " << triangulation.n_active_cells()
-          << std::endl
-          << "Total number of cells: " << triangulation.n_cells()
-          << std::endl
-          << "Number of degrees of freedom: " << dof_handler.n_dofs()
-          << " (" << n_p << '+' << n_T << ')' << std::endl;
-  
-BlockDynamicSparsityPattern dsp(2, 2);
-dsp.block(0, 0).reinit(n_p, n_p);
-dsp.block(1, 0).reinit(n_T, n_p);
-dsp.block(0, 1).reinit(n_p, n_T);
-dsp.block(1, 1).reinit(n_T, n_T);
-dsp.collect_sizes();
-DoFTools::make_sparsity_pattern(dof_handler, dsp);
-
-  sparsity_pattern.copy_from(dsp);
-
-  // mass_matrix.reinit(sparsity_pattern);     // initialize M using given sparsity
-  //                                           // parttern
-  // laplace_matrix.reinit(sparsity_pattern);  // initialize A using given sparsity
-  //                                           // parttern
-  system_matrix.reinit(sparsity_pattern);   // initialize M + k*theta*A using
-                                            // given sparsity parttern
-
-  solution.reinit(2);    //resize the solution // component =2
-  solution.block(0).reinit(n_p);
-  solution.block(1).reinit(n_T);
-  solution.collect_sizes();
-  system_rhs.reinit(2);  //resize the right hand side // component =2
-  system_rhs.block(0).reinit(n_p);
-  system_rhs.block(1).reinit(n_T);
-  system_rhs.collect_sizes();
-
 }
 
 template <int dim>
-void HeatEquation<dim>::assemble_system() {
+void HeatEquation<dim>::assemble_system()
+{
+  dof_handler.distribute_dofs(fe); // distribute dofs to grid
 
-  QGauss<dim>  quadrature_formula(2); // component =2
-  QGauss<dim-1> face_quadrature_formula(2); // component =2
-  FEValues<dim> fe_values (fe, quadrature_formula,
-                             update_values    | update_gradients |
-                             update_quadrature_points  | update_JxW_values);
-  FEFaceValues<dim> fe_face_values (fe, face_quadrature_formula,
-                                      update_values    | update_normal_vectors |
-                                      update_quadrature_points  | update_JxW_values);
-  
-  const unsigned int dofs_per_cell = fe.dofs_per_cell;
+  std::cout << std::endl
+            << "===========================================" << std::endl
+            << "Number of active cells: " << triangulation.n_active_cells()
+            << std::endl
+            << "Number of degrees of freedom: " << dof_handler.n_dofs()
+            << std::endl
+            << std::endl;
 
-  const unsigned int n_q_points = quadrature_formula.size();
-  const unsigned int n_face_q_points = face_quadrature_formula.size();
+  constraints.clear();
+  DoFTools::make_hanging_node_constraints(
+      dof_handler,
+      constraints); // setting the hanging node
+  constraints.close();
 
-  FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
-  Vector<double> local_rhs(dofs_per_cell);
+  DynamicSparsityPattern dsp(dof_handler.n_dofs()); // sparsity
+  DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints,
+                                  /*keep_constrained_dofs = */ true);
+  sparsity_pattern.copy_from(dsp);
 
-  std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
+  mass_matrix.reinit(sparsity_pattern);    // initialize M using given
+  sparsity
+                                           // parttern
+  laplace_matrix.reinit(sparsity_pattern); // initialize A using given
+  sparsity
+                                           // parttern
+  system_matrix.reinit(sparsity_pattern);  // initialize M + k*theta*A using
+                                           // given sparsity parttern
 
-  //declare objects that represent the source term, pressure boundary value, 
-  // and coefficient in the equation. In addition to these objects 
-  // that represent continuous functions, we also need arrays to hold their 
-  // values at the quadrature points of individual cells (or faces, for the boundary values).
-  const PressureRightHandSide<dim> pressure_right_hand_side;
-  const PressureBoundaryValues<dim> pressure_boundary_values;
-  const TemperatureRightHandSide<dim>  temperature_right_hand_side;
-  const TemperatureBoundaryValues<dim> temperature_boundary_values;
-  // const KInverse<dim>               k_inverse;
+  MatrixCreator::create_mass_matrix(
+      dof_handler, QGauss<dim>(fe.degree + 1),
+      mass_matrix); // Assemble the mass matrix and a right hand side vector.
+                    // If no coefficient is given (i.e., if the pointer to a
+                    // function object is zero as it is by default), the
+                    // coefficient is taken as being constant and equal to
+                    one.
+  MatrixCreator::create_laplace_matrix(
+      dof_handler, QGauss<dim>(fe.degree + 1),
+      laplace_matrix); // Assemble the Laplace matrix.
+                       // If no coefficient is given (i.e., if the pointer to
+                       // a
+                       // function object is zero as it is by default), the
+                       // coefficient is taken as being constant and equal to
+                       // one. In case you want to specify constraints and
+                       // use
+                       // the default argument for the coefficient you have
+                       // to
+                       // specify the (unused) coefficient argument as (const
+                       // Function<spacedim> *const)nullptr.
 
-  std::vector<double> p_rhs_qvalues(n_q_points);
-  std::vector<double> p_bd_qvalues(n_face_q_points);
-  std::vector<double> T_rhs_qvalues(n_q_points);
-  std::vector<double> T_bd_qvalues(n_face_q_points);
-  // std::vector<Tensor<2, dim>> k_inverse_values(n_q_points);
-
-  std::vector<Vector<double> > old_solution_values(n_q_points,
-                                                   Vector<double>(2)); //component = 2
-  std::vector<std::vector<Tensor<1, dim> > > old_solution_grads(
-      n_q_points, std::vector<Tensor<1, dim> >(2));  // component = 2
-
-  const FEValuesExtractors::Scalar pressure(0);
-  const FEValuesExtractors::Scalar temperature(1);
-
-  typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(),
-                                                 endc = dof_handler.end();
-
-  for (; cell!=endc; ++cell){
-    fe_values.reinit(cell);
-    local_matrix = 0;
-    local_rhs = 0; 
-    pressure_right_hand_side.value_list(fe_values.get_quadrature_points(),
-                               p_rhs_qvalues);
-    temperature_right_hand_side.value_list(fe_values.get_quadrature_points(),
-                                        T_rhs_qvalues);
-//  k_inverse.value_list(fe_values.get_quadrature_points(),
-//                          k_inverse_values);
-    for (unsigned int q = 0, q < n_q_points; ++q)
-      for (unsigned int i = 0, i < dofs_per_cell; ++i) {
-        const double old_p = old_solution_values[q]{0};
-        const double old_T = old_solution_values[q]{1};
-
-        const double phi_i_p = fe_values[pressure].value(i, q);
-        const double phi_i_T = fe_values[temperature].value(i, q);
-        const double div_phi_i_p = fe_values[pressure].divergence(i, q);
-        const double div_phi_i_T = fe_values[temperature].divergence(i, q);
-
-        for (unsigned int j=0; j<dofs_per_cell; ++j){
-          const double phi_j_p = fe_values[pressure].value (j, q);
-          const double phi_j_T = fe_values[temperature].value (j, q);
-          const double div_phi_i_p = fe_values[pressure].divergence(j, q);
-          const double div_phi_i_T = fe_values[temperature].divergence(j, q);
-
-          // write local matrix and rhs for p and T
-
-
-
-        }
-
-      }
-  }
+  solution.reinit(dof_handler.n_dofs());
+  old_solution.reinit(dof_handler.n_dofs());
+  system_rhs.reinit(dof_handler.n_dofs());
 }
-
-// template <int dim>
-// void HeatEquation<dim>::make_grid_and_dofs()
-// {
-//   GridIn<dim> gridin;
-//   gridin.attach_triangulation(triangulation);
-//   std::ifstream f("mesh.msh");
-//   gridin.read_msh(f);
-
-//   print_mesh_info(triangulation, "grid-1.eps");
-// }
-
-// template <int dim>
-// void HeatEquation<dim>::assemble_system()
-// {
-//   dof_handler.distribute_dofs(fe); // distribute dofs to grid
-
-//   std::cout << std::endl
-//             << "===========================================" << std::endl
-//             << "Number of active cells: " << triangulation.n_active_cells()
-//             << std::endl
-//             << "Number of degrees of freedom: " << dof_handler.n_dofs()
-//             << std::endl
-//             << std::endl;
-
-//   constraints.clear();
-//   DoFTools::make_hanging_node_constraints(
-//       dof_handler,
-//       constraints); // setting the hanging node
-//   constraints.close();
-
-//   DynamicSparsityPattern dsp(dof_handler.n_dofs()); // sparsity
-//   DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints,
-//                                   /*keep_constrained_dofs = */ true);
-//   sparsity_pattern.copy_from(dsp);
-
-//   mass_matrix.reinit(sparsity_pattern);    // initialize M using given
-//   sparsity
-//                                            // parttern
-//   laplace_matrix.reinit(sparsity_pattern); // initialize A using given
-//   sparsity
-//                                            // parttern
-//   system_matrix.reinit(sparsity_pattern);  // initialize M + k*theta*A using
-//                                            // given sparsity parttern
-
-//   MatrixCreator::create_mass_matrix(
-//       dof_handler, QGauss<dim>(fe.degree + 1),
-//       mass_matrix); // Assemble the mass matrix and a right hand side vector.
-//                     // If no coefficient is given (i.e., if the pointer to a
-//                     // function object is zero as it is by default), the
-//                     // coefficient is taken as being constant and equal to
-//                     one.
-//   MatrixCreator::create_laplace_matrix(
-//       dof_handler, QGauss<dim>(fe.degree + 1),
-//       laplace_matrix); // Assemble the Laplace matrix.
-//                        // If no coefficient is given (i.e., if the pointer to
-//                        a
-//                        // function object is zero as it is by default), the
-//                        // coefficient is taken as being constant and equal to
-//                        // one. In case you want to specify constraints and
-//                        use
-//                        // the default argument for the coefficient you have
-//                        to
-//                        // specify the (unused) coefficient argument as (const
-//                        // Function<spacedim> *const)nullptr.
-
-//   solution.reinit(dof_handler.n_dofs());
-//   old_solution.reinit(dof_handler.n_dofs());
-//   system_rhs.reinit(dof_handler.n_dofs());
-// }
 
 template <int dim>
 void HeatEquation<dim>::solve_time_step() {
