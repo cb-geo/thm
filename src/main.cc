@@ -7,8 +7,8 @@ int main()
   try
   {
     using namespace dealii;
-    HeatEquation<3> heat_equation_solver;
-    heat_equation_solver.run();
+    CoupledTH<3> coupled_TH_solver;
+    coupled_TH_solver.run();
   }
   catch (std::exception &exc)
   {
