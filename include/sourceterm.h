@@ -12,10 +12,10 @@ using namespace dealii;
 namespace EquationData
 {
 template <int dim>
-class PressureRightHandSide : public Function<dim>
+class PressureSourceTerm : public Function<dim>
 {
 public:
-    PressureRightHandSide() : Function<dim>(1), period(0.2) {}
+    PressureSourceTerm() : Function<dim>(1), period(0.2) {}
 
     virtual double value(const Point<dim> &p,
                          const unsigned int component = 0) const; // assign rhs
@@ -31,7 +31,7 @@ private:
 
 template <int dim>
 double
-PressureRightHandSide<dim>::value(const Point<dim> &p,
+PressureSourceTerm<dim>::value(const Point<dim> &p,
                                   const unsigned int component) const
 {
     // (void)component;
@@ -42,18 +42,18 @@ PressureRightHandSide<dim>::value(const Point<dim> &p,
 }
 
 template <int dim>
-void PressureRightHandSide<dim>::vector_value(const Point<dim> &p,
+void PressureSourceTerm<dim>::vector_value(const Point<dim> &p,
                                               Vector<double> &values) const
 {
     for (unsigned int c = 0; c < this->n_components; ++c)
-        values(c) = PressureRightHandSide<dim>::value(p, c);
+        values(c) = PressureSourceTerm<dim>::value(p, c);
 }
 
 template <int dim>
-class TemperatureRightHandSide : public Function<dim>
+class TemperatureSourceTerm : public Function<dim>
 {
 public:
-    TemperatureRightHandSide() : Function<dim>(1), period(0.2) {}
+    TemperatureSourceTerm() : Function<dim>(1), period(0.2) {}
 
     virtual double value(const Point<dim> &p,
                          const unsigned int component = 0) const;
@@ -67,7 +67,7 @@ private:
 
 template <int dim>
 double
-TemperatureRightHandSide<dim>::value(const Point<dim> &p,
+TemperatureSourceTerm<dim>::value(const Point<dim> &p,
                                      const unsigned int component) const
 {
     // (void)component;
@@ -78,11 +78,11 @@ TemperatureRightHandSide<dim>::value(const Point<dim> &p,
 }
 
 template <int dim>
-void TemperatureRightHandSide<dim>::vector_value(const Point<dim> &p,
+void TemperatureSourceTerm<dim>::vector_value(const Point<dim> &p,
                                                  Vector<double> &values) const
 {
     for (unsigned int c = 0; c < this->n_components; ++c)
-        values(c) = TemperatureRightHandSide<dim>::value(p, c);
+        values(c) = TemperatureSourceTerm<dim>::value(p, c);
 }
 
 } // namespace EquationData

@@ -1,6 +1,6 @@
 #include "initialvalues.h"
 #include "boundaryvalues.h"
-#include "righthandside.h"
+#include "sourceterm.h"
 #include "geothermal.h"
 int main()
 {
