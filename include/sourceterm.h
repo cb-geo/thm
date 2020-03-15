@@ -22,8 +22,8 @@ public:
                                                                   // equal to zero
                                                                   // at each point
 
-    virtual void vector_value(const Point<dim> &p,
-                              Vector<double> &value) const;
+    // virtual void vector_value(const Point<dim> &p,
+    //                           Vector<double> &value) const;
 
 private:
     const double period;
@@ -41,13 +41,13 @@ PressureSourceTerm<dim>::value(const Point<dim> &p,
     return 0.;
 }
 
-template <int dim>
-void PressureSourceTerm<dim>::vector_value(const Point<dim> &p,
-                                              Vector<double> &values) const
-{
-    for (unsigned int c = 0; c < this->n_components; ++c)
-        values(c) = PressureSourceTerm<dim>::value(p, c);
-}
+// template <int dim>
+// void PressureSourceTerm<dim>::vector_value(const Point<dim> &p,
+//                                               Vector<double> &values) const
+// {
+//     for (unsigned int c = 0; c < this->n_components; ++c)
+//         values(c) = PressureSourceTerm<dim>::value(p, c);
+// }
 
 template <int dim>
 class TemperatureSourceTerm : public Function<dim>
@@ -58,8 +58,8 @@ public:
     virtual double value(const Point<dim> &p,
                          const unsigned int component = 0) const;
 
-    virtual void vector_value(const Point<dim> &p,
-                              Vector<double> &value) const;
+    // virtual void vector_value(const Point<dim> &p,
+    //                           Vector<double> &value) const;
 
 private:
     const double period;
@@ -77,12 +77,12 @@ TemperatureSourceTerm<dim>::value(const Point<dim> &p,
     return 0.;
 }
 
-template <int dim>
-void TemperatureSourceTerm<dim>::vector_value(const Point<dim> &p,
-                                                 Vector<double> &values) const
-{
-    for (unsigned int c = 0; c < this->n_components; ++c)
-        values(c) = TemperatureSourceTerm<dim>::value(p, c);
-}
+// template <int dim>
+// void TemperatureSourceTerm<dim>::vector_value(const Point<dim> &p,
+//                                                  Vector<double> &values) const
+// {
+//     for (unsigned int c = 0; c < this->n_components; ++c)
+//         values(c) = TemperatureSourceTerm<dim>::value(p, c);
+// }
 
 } // namespace EquationData
