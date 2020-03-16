@@ -29,7 +29,7 @@ double
 PressureInitialValues<dim>::value(const Point<dim> &,
                                   const unsigned int) const
 {
-    return p0;
+    return P0;
 }
 
 // template <int dim>

@@ -32,7 +32,7 @@ double PressureDirichletBoundaryValues<dim>::value(
   // Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
   // Assert(dim == 3, ExcNotImplemented());
   const double time = this->get_time();  // get time
-  return p0;
+  return P0;
 }
 
 template <int dim>
@@ -91,7 +91,7 @@ double PressureNeumanBoundaryValues<dim>::value(
   // Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
   // Assert(dim == 3, ExcNotImplemented());
   const double time = this->get_time();  // get time
-  return p0;
+  return P0;
 }
 
 template <int dim>

@@ -574,6 +574,13 @@ void CoupledTH<dim>::run()
 
   double time = 0;
 
+  VectorTools::interpolate(T_dof_handler,
+                           EquationData::TemperatureInitialValues<dim>(),
+                           T_old_solution);
+  VectorTools::interpolate(P_dof_handler,
+                           EquationData::PressureInitialValues<dim>(),
+                           P_old_solution);
+                           
   do
   {
     std::cout << "Timestep " << timestep_number << std::endl;
