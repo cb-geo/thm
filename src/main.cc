@@ -7,7 +7,7 @@ int main()
   try
   {
     using namespace dealii;
-    CoupledTH<3> coupled_TH_solver;
+    CoupledTH<3> coupled_TH_solver(1);
     coupled_TH_solver.run();
   }
   catch (std::exception &exc)

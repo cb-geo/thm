@@ -49,7 +49,7 @@ template <int dim>
 class CoupledTH
 {
 public:
-  CoupledTH();
+  CoupledTH(const unsigned int degree);
   void run();
 
 private:
@@ -94,11 +94,11 @@ private:
 };
 
 template <int dim>
-CoupledTH<dim>::CoupledTH() // initialization
-    : P_fe(1),
-      T_fe(1),
-      T_degree(T_degree),
-      P_degree(p_degree),
+CoupledTH<dim>::CoupledTH(const unsigned int degree) // initialization
+    : P_fe(degree),
+      T_fe(degree),
+      T_degree(degree),
+      P_degree(degree),
       P_dof_handler(triangulation),
       T_dof_handler(triangulation),
 
@@ -168,16 +168,16 @@ void CoupledTH<dim>::make_grid_and_dofs()
   std::cout << "Number of active cells: " << triangulation.n_active_cells()
             << " (on " << triangulation.n_levels() << " levels)" << std::endl
             << "Number of degrees of freedom: "
-            << P_dof_handler.n_dofs() + T_dof_handler.n_dofs() << " (" < < < <
-      P_dof_handler.n_dofs()
-          << '+' << T_dof_handler.n_dofs() << ')' << std::endl
-          << std::endl;
+            << P_dof_handler.n_dofs() + T_dof_handler.n_dofs() << " (" 
+            << P_dof_handler.n_dofs()
+            << '+' << T_dof_handler.n_dofs() << ')' << std::endl
+            << std::endl;
 
   // sparsity pattern for T
-  DynamicSparsityPattern dsp(T_dof_handler.n_dofs()); // sparsity
+  DynamicSparsityPattern T_dsp(T_dof_handler.n_dofs()); // sparsity
   DoFTools::make_sparsity_pattern(
-      T_dof_handler, dsp /*constraints, /*keep_constrained_dofs = ,true*/);
-  sparsity_pattern.copy_from(dsp);
+      T_dof_handler, T_dsp /*constraints, keep_constrained_dofs = ,true*/);
+  sparsity_pattern.copy_from(T_dsp);
 
   // forming system matrixes and initialize these matrixes
   T_system_matrix.reinit(sparsity_pattern);
@@ -188,10 +188,10 @@ void CoupledTH<dim>::make_grid_and_dofs()
   T_system_rhs.reinit(T_dof_handler.n_dofs());
 
   // sparsity pattern for P
-  DynamicSparsityPattern dsp(P_dof_handler.n_dofs()); // sparsity
+  DynamicSparsityPattern P_dsp(P_dof_handler.n_dofs()); // sparsity
   DoFTools::make_sparsity_pattern(
-      P_dof_handler, dsp /*constraints, /*keep_constrained_dofs = ,true*/);
-  sparsity_pattern.copy_from(dsp);
+      P_dof_handler, P_dsp /*constraints, keep_constrained_dofs = ,true*/);
+  sparsity_pattern.copy_from(P_dsp);
 
   // forming system matrixes and initialize these matrixes
   P_system_matrix.reinit(sparsity_pattern);
@@ -269,15 +269,18 @@ void CoupledTH<dim>::assemble_P_system()
   //  local element matrix
   FullMatrix<double> P_local_mass_matrix(P_dofs_per_cell, P_dofs_per_cell);
   FullMatrix<double> P_local_stiffness_matrix(P_dofs_per_cell, P_dofs_per_cell);
-  Vector<double> P_local_rhs(p_dofs_per_cell);
+  Vector<double> P_local_rhs(P_dofs_per_cell);
   std::vector<types::global_dof_index> P_local_dof_indices(P_dofs_per_cell);
 
   // boudnary condition and source term
-  const EquationData::PressureSourceTerm<dim> P_source_term;
-  const EquationData::PressureNeumanBoundaryValues<dim> QP_boundary;
+  EquationData::PressureSourceTerm<dim> P_source_term;
+  EquationData::PressureNeumanBoundaryValues<dim> QP_boundary;
+  EquationData::PressureDirichletBoundaryValues<dim> P_boundary;
 
   // loop for cell
-  cell = P_dof_handler.begin_active(), endc = P_dof_handler.end();
+  typename DoFHandler<dim>::active_cell_iterator
+  cell = P_dof_handler.begin_active(),
+  endc = P_dof_handler.end();
   for (; cell != endc; ++cell)
   {
     // initialization
@@ -301,11 +304,11 @@ void CoupledTH<dim>::assemble_P_system()
     {
       for (unsigned int i = 0; i < P_dofs_per_cell; ++i)
       {
-        const double grad_phi_i_p = P_fe_values.shape_grad(i, q);
+        const Tensor<1, dim> grad_phi_i_P = P_fe_values.shape_grad(i, q);
         const double phi_i_P = P_fe_values.shape_value(i, q);
         for (unsigned int j = 0; j < P_dofs_per_cell; ++j)
         {
-          const double grad_phi_j_P = P_fe_values.shape_grad(j, q);
+          const Tensor<1, dim> grad_phi_j_P = P_fe_values.shape_grad(j, q);
           const double phi_j_P = P_fe_values.shape_value(j, q);
           P_local_mass_matrix(i, j) += (phi_i_P * phi_j_P * P_fe_values.JxW(q));
           P_local_stiffness_matrix(i, j) +=
@@ -328,8 +331,8 @@ void CoupledTH<dim>::assemble_P_system()
         P_fe_face_values.reinit(cell, face_no);
 
         // get boundary condition
-        QP_boundary.set_time(time;) QP_boundary.value_list(
-            P_fe_face_values.get_quadrature_points(), QP_bd_values);
+        QP_boundary.set_time(time);
+        QP_boundary.value_list(P_fe_face_values.get_quadrature_points(), QP_bd_values);
 
         for (unsigned int q = 0; q < P_n_face_q_points; ++q)
         {
@@ -355,15 +358,16 @@ void CoupledTH<dim>::assemble_P_system()
         P_stiffness_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
                                P_local_stiffness_matrix(i, j));
       }
-      P_system_rhs(local_dof_indices[i]) += P_local_rhs(i);
+      P_system_rhs(P_local_dof_indices[i]) += P_local_rhs(i);
     }
   }
 
   // ADD DIRICLET BOUNDARY
+
   P_boundary.set_time(time);
 
   std::map<types::global_dof_index, double> P_bd_values;
-  VectorTools::interpolate_boundary_values(dof_handler, 0, P_boundary,
+  VectorTools::interpolate_boundary_values(P_dof_handler, 0, P_boundary,
                                            P_bd_values);
   MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, P_solution,
                                      P_system_rhs);
@@ -432,12 +436,14 @@ void CoupledTH<dim>::assemble_T_system()
   std::vector<types::global_dof_index> T_local_dof_indices(T_dofs_per_cell);
 
   // boudnary condition
-  const EquationData::TemperatureSourceTerm<dim> T_source_term;
-  const EquationData::TemperatureNeumanBoundaryValues<dim> QT_boundary;
-  const EquationData::TemperatureDirichletBoundaryValues<dim> T_boundary;
+  EquationData::TemperatureSourceTerm<dim> T_source_term;
+  EquationData::TemperatureNeumanBoundaryValues<dim> QT_boundary;
+  EquationData::TemperatureDirichletBoundaryValues<dim> T_boundary;
 
   // loop for cell
-  cell = T_dof_handler.begin_active(), endc = T_dof_handler.end();
+  typename DoFHandler<dim>::active_cell_iterator
+  cell = T_dof_handler.begin_active(),
+  endc = T_dof_handler.end();
   for (; cell != endc; ++cell)
   {
     // initialization
@@ -451,19 +457,19 @@ void CoupledTH<dim>::assemble_T_system()
     P_fe_values.get_function_values(old_P_solution, old_P_sol_values);
     P_fe_values.get_function_gradients(old_P_solution, old_P_sol_grads);
     // get right hand side
-    T_source_term.set_time(time) T_source_term.value_list(
-        T_fe_values.get_quadrature_points(), T_source_values);
+    T_source_term.set_time(time);
+    T_source_term.value_list(T_fe_values.get_quadrature_points(), T_source_values);
 
     // loop for q_point ASSMBLING CELL METRIX
     for (unsigned int q = 0; q < T_n_q_points; ++q)
     {
       for (unsigned int i = 0; i < T_dofs_per_cell; ++i)
       {
-        const double grad_phi_i_T = T_fe_values.shape_grad(i, q);
+        const Tensor<1, dim> grad_phi_i_T = T_fe_values.shape_grad(i, q);
         const double phi_i_T = T_fe_values.shape_value(i, q);
         for (unsigned int j = 0; j < T_dofs_per_cell; ++j)
         {
-          const double grad_phi_j_T = T_fe_values.shape_grad(j, q);
+          const Tensor<1, dim> grad_phi_j_T = T_fe_values.shape_grad(j, q);
           const double phi_j_T = T_fe_values.shape_value(j, q);
           T_local_mass_matrix(i, j) += (phi_i_T * phi_j_T * T_fe_values.JxW(q));
           T_local_stiffness_matrix(i, j) +=
@@ -514,7 +520,7 @@ void CoupledTH<dim>::assemble_T_system()
             T_stiffness_matrix); // T_mass_matrix +
                                  // theta*time_step*T_stiffness_matrix
       }
-      T_system_rhs(local_dof_indices[i]) += T_local_rhs(i);
+      T_system_rhs(T_local_dof_indices[i]) += T_local_rhs(i);
     }
   }
 
@@ -522,7 +528,7 @@ void CoupledTH<dim>::assemble_T_system()
   T_boundary.set_time(time);
 
   std::map<types::global_dof_index, double> T_bd_values;
-  VectorTools::interpolate_boundary_values(dof_handler, 0, T_boundary,
+  VectorTools::interpolate_boundary_values(T_dof_handler, 0, T_boundary,
                                            T_bd_values);
   MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, T_solution,
                                      T_system_rhs);
@@ -555,15 +561,15 @@ void CoupledTH<dim>::output_results() const
 {
   DataOut<dim> T_data_out;
 
-  data_out.attach_dof_handler(T_dof_handler);
-  data_out.add_data_vector(T_solution, "U");
+  T_data_out.attach_dof_handler(T_dof_handler);
+  T_data_out.add_data_vector(T_solution, "U");
 
-  data_out.build_patches();
+  T_data_out.build_patches();
 
   const std::string filename =
       "solution-" + Utilities::int_to_string(timestep_number, 3) + ".vtk";
   std::ofstream output(filename.c_str());
-  data_out.write_vtk(output);
+  T_data_out.write_vtk(output);
 }
 
 template <int dim>
@@ -576,11 +582,11 @@ void CoupledTH<dim>::run()
 
   VectorTools::interpolate(T_dof_handler,
                            EquationData::TemperatureInitialValues<dim>(),
-                           T_old_solution);
+                           old_T_solution);
   VectorTools::interpolate(P_dof_handler,
                            EquationData::PressureInitialValues<dim>(),
-                           P_old_solution);
-                           
+                           old_P_solution);
+
   do
   {
     std::cout << "Timestep " << timestep_number << std::endl;
