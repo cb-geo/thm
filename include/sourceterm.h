@@ -15,7 +15,7 @@ template <int dim>
 class PressureSourceTerm : public Function<dim>
 {
 public:
-    PressureSourceTerm() : Function<dim>(1), period(0.2) {}
+    PressureSourceTerm() : Function<dim>(), period(0.2) {}
 
     virtual double value(const Point<dim> &p,
                          const unsigned int component = 0) const; // assign rhs
@@ -53,9 +53,9 @@ template <int dim>
 class TemperatureSourceTerm : public Function<dim>
 {
 public:
-    TemperatureSourceTerm() : Function<dim>(1), period(0.2) {}
+    TemperatureSourceTerm() : Function<dim>(), period(0.2) {}
 
-    virtual double value(const Point<dim> &p,
+    virtual double value(const Point<dim>& p,
                          const unsigned int component = 0) const;
 
     // virtual void vector_value(const Point<dim> &p,
@@ -66,14 +66,13 @@ private:
 };
 
 template <int dim>
-double
-TemperatureSourceTerm<dim>::value(const Point<dim> &p,
-                                     const unsigned int component) const
+double TemperatureSourceTerm<dim>::value(const Point<dim> &p,
+                                     const unsigned int ) const
 {
     // (void)component;
     // Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
     // Assert(dim == 3, ExcNotImplemented());
-    const double time = this->get_time(); // get time
+    // const double time = this->get_time(); // get time
     return 0.;
 }
 

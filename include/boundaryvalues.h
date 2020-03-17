@@ -13,7 +13,10 @@ namespace EquationData {
 template <int dim>
 class PressureDirichletBoundaryValues : public Function<dim> {
  public:
-  PressureDirichletBoundaryValues() : Function<dim>(1), period(0.2) {}  // 之前的没有
+  PressureDirichletBoundaryValues() 
+    : Function<dim>()
+    , period(0.2) 
+  {}  // 之前的没有
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
 
@@ -38,7 +41,11 @@ double PressureDirichletBoundaryValues<dim>::value(
 template <int dim>
 class TemperatureDirichletBoundaryValues : public Function<dim> {
  public:
-  TemperatureDirichletBoundaryValues() : Function<dim>(1), period(0.2) {}  // 之前的没有
+  TemperatureDirichletBoundaryValues() 
+    : Function<dim>()
+    , period(0.2) 
+  {}  // 之前的没有
+
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
   // virtual void vector_value(const Point<dim>& p,  //放在这里没啥用
@@ -72,7 +79,9 @@ template <int dim>
 class PressureNeumanBoundaryValues : public Function<dim> {
  public:
   PressureNeumanBoundaryValues()
-      : Function<dim>(1), period(0.2) {}  // 之前的没有
+      : Function<dim>()
+      , period(0.2) 
+  {}  // 之前的没有
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
 
@@ -90,14 +99,17 @@ double PressureNeumanBoundaryValues<dim>::value(
   // (void)component;
   // Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
   // Assert(dim == 3, ExcNotImplemented());
-  const double time = this->get_time();  // get time
+  double time = this->get_time();  // get time
   return P0;
 }
 
 template <int dim>
 class TemperatureNeumanBoundaryValues : public Function<dim> {
  public:
-  TemperatureNeumanBoundaryValues() : Function<dim>(1), period(0.2) {}  // 之前的没有
+  TemperatureNeumanBoundaryValues() 
+  : Function<dim>() 
+    , period(0.2) 
+  {}  // 之前的没有
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
   // virtual void vector_value(const Point<dim>& p,  //放在这里没啥用
