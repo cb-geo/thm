@@ -102,7 +102,7 @@ CoupledTH<dim>::CoupledTH(const unsigned int degree) // initialization
       dof_handler(triangulation),
 
       time(0.0),
-      time_step(1. / 20), // a time step constant at 1/500 (remember that one
+      time_step(0.5 / 20), // a time step constant at 1/500 (remember that one
                           // period of the source on the right hand side was
                           // set to 0.2 above, so we resolve each period with
                           // 100 time steps)
@@ -220,9 +220,9 @@ void CoupledTH<dim>::assemble_P_system()
 
   QGauss<dim - 1> T_face_quadrature_formula(T_degree + 1);
 
-  FEValues<dim> T_fe_values(
-      T_fe, T_quadrature_formula,
-      update_values | update_gradients | update_JxW_values);
+  FEValues<dim> T_fe_values( T_fe, T_quadrature_formula,
+      update_values | update_gradients |
+       update_gradients | update_JxW_values);
 
   FEFaceValues<dim> T_fe_face_values(T_fe, T_face_quadrature_formula,
                                      update_values | update_normal_vectors |
@@ -236,7 +236,8 @@ void CoupledTH<dim>::assemble_P_system()
 
   FEValues<dim> P_fe_values(
       P_fe, P_quadrature_formula,
-      update_values | update_gradients | update_JxW_values);
+      update_values | update_gradients |
+       update_gradients | update_JxW_values);
 
   FEFaceValues<dim> P_fe_face_values(P_fe, P_face_quadrature_formula,
                                      update_values | update_normal_vectors |
@@ -286,6 +287,7 @@ void CoupledTH<dim>::assemble_P_system()
     P_local_mass_matrix = 0;
     P_local_stiffness_matrix = 0;
     P_local_rhs = 0;
+    T_fe_values.reinit(cell);
     P_fe_values.reinit(cell);
 
     // get the values at gauss point old_T_sol_values from the system old_T_solution
@@ -337,9 +339,8 @@ void CoupledTH<dim>::assemble_P_system()
         {
           for (unsigned int i = 0; i < P_dofs_per_cell; ++i)
           {
-            const double phi_i_P = P_fe_face_values.value(i, q);
-            P_local_rhs(i) +=
-                -(phi_i_P * QP_bd_values[q] * P_fe_face_values.JxW(q));
+            P_local_rhs(i) += -(P_fe_face_values.value(i, q) * 
+                              QP_bd_values[q] * P_fe_face_values.JxW(q));
           }
         }
       }
@@ -356,6 +357,11 @@ void CoupledTH<dim>::assemble_P_system()
                           P_local_mass_matrix(i, j));
         P_stiffness_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
                                P_local_stiffness_matrix(i, j));
+        P_system_matrix.copy_from(P_mass_matrix);
+        P_system_matrix.add(
+            theta * time_step,
+            P_stiffness_matrix); // P_mass_matrix +
+                                 // theta*time_step*P_stiffness_matrix
       }
       P_system_rhs(P_local_dof_indices[i]) += P_local_rhs(i);
     }
@@ -366,7 +372,7 @@ void CoupledTH<dim>::assemble_P_system()
   P_boundary.set_time(time);
 
   std::map<types::global_dof_index, double> P_bd_values;
-  VectorTools::interpolate_boundary_values(dof_handler, 0, P_boundary,
+  VectorTools::interpolate_boundary_values(dof_handler, 1, P_boundary,
                                            P_bd_values);
   MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, P_solution,
                                      P_system_rhs);
@@ -528,7 +534,7 @@ void CoupledTH<dim>::assemble_T_system()
   T_boundary.set_time(time);
 
   std::map<types::global_dof_index, double> T_bd_values;
-  VectorTools::interpolate_boundary_values(dof_handler, 0, T_boundary,
+  VectorTools::interpolate_boundary_values(dof_handler, 1, T_boundary,
                                            T_bd_values);
   MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, T_solution,
                                      T_system_rhs);
@@ -575,11 +581,8 @@ void CoupledTH<dim>::output_results() const
 template <int dim>
 void CoupledTH<dim>::run()
 {
-  double time = 0;
   make_grid_and_dofs();
-  assemble_T_system();
-
-  
+  // assemble_T_system();
 
   VectorTools::interpolate(dof_handler,
                            EquationData::TemperatureInitialValues<dim>(),
@@ -603,5 +606,5 @@ void CoupledTH<dim>::run()
     std::cout << "   Now at t=" << time << ", dt=" << time_step << '.'
               << std::endl
               << std::endl;
-  } while (time <= 1.);
+  } while (time <= 0.5);
 }

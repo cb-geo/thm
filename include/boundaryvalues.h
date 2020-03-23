@@ -100,7 +100,7 @@ double PressureNeumanBoundaryValues<dim>::value(
   // Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
   // Assert(dim == 3, ExcNotImplemented());
   double time = this->get_time();  // get time
-  return P0;
+  return 0.;
 }
 
 template <int dim>
@@ -128,7 +128,7 @@ double TemperatureNeumanBoundaryValues<dim>::value(
   // Assert(dim == 3, ExcNotImplemented());
 
   const double time = this->get_time();
-  return T0 + 10. * sin(time * 3.1415926);  // boundary value is set to zero in
+  return 0.;  // boundary value is set to zero in
                                             // this case
 }
 
