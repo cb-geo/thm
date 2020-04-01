@@ -1,11 +1,13 @@
-
 #pragma once
-// #include <deal.II/numerics/vector_tools.h>
-#include "globalvariables.h"
-#include <deal.II/base/function.h>
-#include <deal.II/lac/vector.h>
+
 #include <fstream>
 #include <iostream>
+
+// #include <deal.II/numerics/vector_tools.h>
+#include <deal.II/base/function.h>
+#include <deal.II/lac/vector.h>
+
+#include "globalvariables.h"
 
 using namespace dealii;
 
@@ -13,10 +15,8 @@ namespace EquationData {
 template <int dim>
 class PressureDirichletBoundaryValues : public Function<dim> {
  public:
-  PressureDirichletBoundaryValues() 
-    : Function<dim>()
-    , period(0.2) 
-  {}  // 之前的没有
+  PressureDirichletBoundaryValues()
+      : Function<dim>(), period(0.2) {}  // 之前的没有
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
 
@@ -41,10 +41,8 @@ double PressureDirichletBoundaryValues<dim>::value(
 template <int dim>
 class TemperatureDirichletBoundaryValues : public Function<dim> {
  public:
-  TemperatureDirichletBoundaryValues() 
-    : Function<dim>()
-    , period(0.2) 
-  {}  // 之前的没有
+  TemperatureDirichletBoundaryValues()
+      : Function<dim>(), period(0.2) {}  // 之前的没有
 
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
@@ -79,9 +77,7 @@ template <int dim>
 class PressureNeumanBoundaryValues : public Function<dim> {
  public:
   PressureNeumanBoundaryValues()
-      : Function<dim>()
-      , period(0.2) 
-  {}  // 之前的没有
+      : Function<dim>(), period(0.2) {}  // 之前的没有
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
 
@@ -106,10 +102,8 @@ double PressureNeumanBoundaryValues<dim>::value(
 template <int dim>
 class TemperatureNeumanBoundaryValues : public Function<dim> {
  public:
-  TemperatureNeumanBoundaryValues() 
-  : Function<dim>() 
-    , period(0.2) 
-  {}  // 之前的没有
+  TemperatureNeumanBoundaryValues()
+      : Function<dim>(), period(0.2) {}  // 之前的没有
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
   // virtual void vector_value(const Point<dim>& p,  //放在这里没啥用
@@ -129,7 +123,7 @@ double TemperatureNeumanBoundaryValues<dim>::value(
 
   const double time = this->get_time();
   return 0.;  // boundary value is set to zero in
-                                            // this case
+              // this case
 }
 
 // template <int dim>

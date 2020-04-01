@@ -1,17 +1,15 @@
-#include "initialvalues.h"
 #include "boundaryvalues.h"
+#include "initialvalues.h"
 #include "sourceterm.h"
+
 #include "geothermal.h"
-int main()
-{
-  try
-  {
+
+int main() {
+  try {
     using namespace dealii;
     CoupledTH<3> coupled_TH_solver(1);
     coupled_TH_solver.run();
-  }
-  catch (std::exception &exc)
-  {
+  } catch (std::exception& exc) {
     std::cerr << std::endl
               << std::endl
               << "----------------------------------------------------"
@@ -22,9 +20,7 @@ int main()
               << "----------------------------------------------------"
               << std::endl;
     return 1;
-  }
-  catch (...)
-  {
+  } catch (...) {
     std::cerr << std::endl
               << std::endl
               << "----------------------------------------------------"

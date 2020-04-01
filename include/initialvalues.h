@@ -1,35 +1,33 @@
-
 #pragma once
+
+#include <fstream>
+#include <iostream>
+
 // #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/base/function.h>
 #include <deal.II/lac/vector.h>
-#include <iostream>
-#include <fstream>
+
 #include "globalvariables.h"
 
 using namespace dealii;
 
-namespace EquationData
-{
+namespace EquationData {
 
 template <int dim>
-class PressureInitialValues : public Function<dim>
-{
-public:
-    PressureInitialValues() : Function<dim>(1) {}
+class PressureInitialValues : public Function<dim> {
+ public:
+  PressureInitialValues() : Function<dim>(1) {}
 
-    virtual double value(const Point<dim> &p,
-                         const unsigned int component = 0) const;
-    // virtual void vector_value(const Point<dim> &p,
-    //                           Vector<double> &value) const;
+  virtual double value(const Point<dim>& p,
+                       const unsigned int component = 0) const;
+  // virtual void vector_value(const Point<dim> &p,
+  //                           Vector<double> &value) const;
 };
 
 template <int dim>
-double
-PressureInitialValues<dim>::value(const Point<dim> &,
-                                  const unsigned int) const
-{
-    return P0;
+double PressureInitialValues<dim>::value(const Point<dim>&,
+                                         const unsigned int) const {
+  return P0;
 }
 
 // template <int dim>
@@ -41,30 +39,28 @@ PressureInitialValues<dim>::value(const Point<dim> &,
 // }
 
 template <int dim>
-class TemperatureInitialValues : public Function<dim>
-{
-public:
-    TemperatureInitialValues() : Function<dim>(1) {}
+class TemperatureInitialValues : public Function<dim> {
+ public:
+  TemperatureInitialValues() : Function<dim>(1) {}
 
-    virtual double value(const Point<dim> &p,
-                         const unsigned int component = 0) const;
-    // virtual void vector_value(const Point<dim> &p,
-    //                           Vector<double> &value) const;
+  virtual double value(const Point<dim>& p,
+                       const unsigned int component = 0) const;
+  // virtual void vector_value(const Point<dim> &p,
+  //                           Vector<double> &value) const;
 };
 
 template <int dim>
-double
-TemperatureInitialValues<dim>::value(const Point<dim> &,
-                                     const unsigned int) const
-{
-    return T0;
+double TemperatureInitialValues<dim>::value(const Point<dim>&,
+                                            const unsigned int) const {
+  return T0;
 }
 
 // template <int dim>
 // void TemperatureInitialValues<dim>::vector_value(const Point<dim> &p,
-//                                                  Vector<double> &values) const
+//                                                  Vector<double> &values)
+//                                                  const
 // {
 //     for (unsigned int c = 0; c < this->n_components; ++c)
 //         values(c) = TemperatureInitialValues<dim>::value(p, c);
 // }
-} // namespace EquationData
+}  // namespace EquationData
