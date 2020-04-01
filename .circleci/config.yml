@@ -41,16 +41,3 @@ jobs:
           name: clang-format
           command: |
             python3 ./clang-tools/run-clang-format.py -r include/* src/*
-      # codecoverage
-      - run:
-          name: codecov.io
-          command: |
-            mkdir -p build
-            [ "$(ls -A build)" ] && rm -rf build/*
-            cd build
-            cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++ -DCMAKE_EXPORT_COMPILE_COMMANDS=On -DENABLE_COVERAGE=On -DDEAL_II_DIR=/home/cbgeo/research/dealii/ ..
-            make mpmtest_coverage -j2
-            ./mpmtest_coverage
-            make gcov -j2  --ignore-errors
-            make lcov
-            bash <(curl -s https://codecov.io/bash) -X gcov
