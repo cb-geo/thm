@@ -3,7 +3,7 @@ jobs:
   build:
     working_directory: /home/cbgeo/research/mpm
     docker:
-      - image: quay.io/cbgeo/mpm
+      - image: quay.io/cbgeo/thm
     steps:
       - checkout
       # GCC-8
