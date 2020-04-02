@@ -337,14 +337,14 @@ void CoupledTH<dim>::assemble_P_system() {
                           P_local_mass_matrix(i, j));
         P_stiffness_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
                                P_local_stiffness_matrix(i, j));
-        P_system_matrix.copy_from(P_mass_matrix);
-        P_system_matrix.add(
-            theta * time_step,
-            P_stiffness_matrix);  // P_mass_matrix +
-                                  // theta*time_step*P_stiffness_matrix
       }
       P_system_rhs(P_local_dof_indices[i]) += P_local_rhs(i);
     }
+    P_system_matrix.copy_from(P_mass_matrix);
+    P_system_matrix.add(
+            theta * time_step,
+            P_stiffness_matrix);  // P_mass_matrix +
+                                  // theta*time_step*P_stiffness_matrix
   }
 
   // ADD DIRICLET BOUNDARY
@@ -490,14 +490,14 @@ void CoupledTH<dim>::assemble_T_system() {
                           T_local_mass_matrix(i, j));
         T_stiffness_matrix.add(T_local_dof_indices[i], T_local_dof_indices[j],
                                T_local_stiffness_matrix(i, j));
-        T_system_matrix.copy_from(T_mass_matrix);
-        T_system_matrix.add(
-            theta * time_step,
-            T_stiffness_matrix);  // T_mass_matrix +
-                                  // theta*time_step*T_stiffness_matrix
       }
       T_system_rhs(T_local_dof_indices[i]) += T_local_rhs(i);
     }
+    T_system_matrix.copy_from(T_mass_matrix);
+    T_system_matrix.add(
+            theta * time_step,
+            T_stiffness_matrix);  // T_mass_matrix +
+                                  // theta*time_step*T_stiffness_matrix
   }
 
   // ADD DIRICLET BOUNDARY
