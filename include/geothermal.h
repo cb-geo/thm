@@ -1,9 +1,9 @@
 #pragma once
 
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <map>
-#include <chrono>
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/logstream.h>
@@ -42,33 +42,10 @@
 #include <deal.II/numerics/solution_transfer.h>
 #include <deal.II/numerics/vector_tools.h>
 
+#include "clock.h"
 #include "globalvariables.h"
 
 using namespace dealii;
-
-class Timer{
- public:
-    Timer(){
-      m_StartTimepoint = std::chrono::high_resolution_clock::now();
-    }
-
-    ~Timer(){
-      Stop();
-    }
-
-    void Stop(){
-      auto endTimepoint = std::chrono::high_resolution_clock::now();
-      auto start = std::chrono::time_point_cast<std::chrono::microseconds>(m_StartTimepoint).time_since_epoch().count();
-      auto end = std::chrono::time_point_cast<std::chrono::microseconds>(endTimepoint).time_since_epoch().count();
-      auto duration = end - start;
-      double sec = duration * 0.00001;
-      std::cout << sec <<" second"<< std:: endl;
-    }
- private:
-    std::chrono::time_point<std::chrono::high_resolution_clock> m_StartTimepoint;
-    
-};
-
 
 template <int dim>
 class CoupledTH {
@@ -170,7 +147,8 @@ void print_mesh_info(const Triangulation<dim>& triangulation,
 template <int dim>
 void CoupledTH<dim>::make_grid_and_dofs() {
 
-  Timer timer;
+  cbgeo::Clock timer;
+  timer.tick();
   GridIn<dim> gridin;  // instantiate a gridinput
   gridin.attach_triangulation(triangulation);
   std::ifstream f("mesh.msh");
@@ -222,14 +200,14 @@ void CoupledTH<dim>::make_grid_and_dofs() {
   //     constraints); // setting the hanging node
   // constraints.close();
 
-  std::cout<<"make_grid_and_dofs takes "<< std::endl;
+  timer.tock("Grid_and_dofs");
 }
 
 template <int dim>
 void CoupledTH<dim>::assemble_P_system() {
 
-  Timer timer;
-
+  cbgeo::Clock timer;
+  timer.tick();
   // reset matreix to zero
   // p_mass_matrix = 0;
   // p_stiffness_matrix = 0;
@@ -373,9 +351,9 @@ void CoupledTH<dim>::assemble_P_system() {
     }
     P_system_matrix.copy_from(P_mass_matrix);
     P_system_matrix.add(
-            theta * time_step,
-            P_stiffness_matrix);  // P_mass_matrix +
-                                  // theta*time_step*P_stiffness_matrix
+        theta * time_step,
+        P_stiffness_matrix);  // P_mass_matrix +
+                              // theta*time_step*P_stiffness_matrix
   }
 
   // ADD DIRICLET BOUNDARY
@@ -388,12 +366,13 @@ void CoupledTH<dim>::assemble_P_system() {
   MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, P_solution,
                                      P_system_rhs);
 
-  std::cout<<"assemble_P_system takes "<< std::endl;                                  
+  timer.tock("assemble_P_system");
 }
 
 template <int dim>
 void CoupledTH<dim>::assemble_T_system() {
-  Timer timer;
+  cbgeo::Clock timer;
+  timer.tick();
   // reset matreix to zero
   // T_mass_matrix = 0;
   // T_stiffness_matrix = 0;
@@ -528,9 +507,9 @@ void CoupledTH<dim>::assemble_T_system() {
     }
     T_system_matrix.copy_from(T_mass_matrix);
     T_system_matrix.add(
-            theta * time_step,
-            T_stiffness_matrix);  // T_mass_matrix +
-                                  // theta*time_step*T_stiffness_matrix
+        theta * time_step,
+        T_stiffness_matrix);  // T_mass_matrix +
+                              // theta*time_step*T_stiffness_matrix
   }
 
   // ADD DIRICLET BOUNDARY
@@ -542,12 +521,13 @@ void CoupledTH<dim>::assemble_T_system() {
   MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, T_solution,
                                      T_system_rhs);
 
-  std::cout<<"assemble_T_system takes "<< std::endl;  
+  timer.tock("assemble_T_system");
 }
 
 template <int dim>
 void CoupledTH<dim>::linear_solve_T() {
-  Timer timer;
+  cbgeo::Clock timer;
+  timer.tick();
   SolverControl solver_control(
       1000,
       1e-8 * T_system_rhs.l2_norm());               // setting for cg
@@ -560,10 +540,9 @@ void CoupledTH<dim>::linear_solve_T() {
   // consistent at
   // the constraint point
 
-  std::cout << "     " << solver_control.last_step() << " CG iterations."
-            << std::endl;
-  
-  std::cout<<"linear_solve_T takes "<< std::endl;  
+  std::cout << "\nCG iterations: " << solver_control.last_step() << std::endl;
+
+  timer.tock("linear_solve_T");
 }
 
 // @sect4{<code>CoupledTH::output_results</code>}
@@ -596,7 +575,7 @@ void CoupledTH<dim>::run() {
       dof_handler, EquationData::PressureInitialValues<dim>(), old_P_solution);
 
   do {
-    std::cout << "Timestep " << timestep_number << std::endl;
+    std::cout << "\nTimestep " << timestep_number;
 
     assemble_T_system();
 
@@ -606,7 +585,7 @@ void CoupledTH<dim>::run() {
 
     time += time_step;
     ++timestep_number;
-    std::cout << "   Now at t=" << time << ", dt=" << time_step << '.'
+    std::cout << "\nt=" << time << ", dt=" << time_step << '.'
               << std::endl
               << std::endl;
   } while (time <= 0.5);

@@ -66,3 +66,4 @@ build/*
 *.db*
 *.nas*
 *.vscode/*
+grid-1.eps
