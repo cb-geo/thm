@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <chrono>
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/logstream.h>
@@ -44,6 +45,30 @@
 #include "globalvariables.h"
 
 using namespace dealii;
+
+class Timer{
+ public:
+    Timer(){
+      m_StartTimepoint = std::chrono::high_resolution_clock::now();
+    }
+
+    ~Timer(){
+      Stop();
+    }
+
+    void Stop(){
+      auto endTimepoint = std::chrono::high_resolution_clock::now();
+      auto start = std::chrono::time_point_cast<std::chrono::microseconds>(m_StartTimepoint).time_since_epoch().count();
+      auto end = std::chrono::time_point_cast<std::chrono::microseconds>(endTimepoint).time_since_epoch().count();
+      auto duration = end - start;
+      double sec = duration * 0.00001;
+      std::cout << sec <<" second"<< std:: endl;
+    }
+ private:
+    std::chrono::time_point<std::chrono::high_resolution_clock> m_StartTimepoint;
+    
+};
+
 
 template <int dim>
 class CoupledTH {
@@ -144,6 +169,8 @@ void print_mesh_info(const Triangulation<dim>& triangulation,
 
 template <int dim>
 void CoupledTH<dim>::make_grid_and_dofs() {
+
+  Timer timer;
   GridIn<dim> gridin;  // instantiate a gridinput
   gridin.attach_triangulation(triangulation);
   std::ifstream f("mesh.msh");
@@ -194,10 +221,14 @@ void CoupledTH<dim>::make_grid_and_dofs() {
   //     dof_handler,
   //     constraints); // setting the hanging node
   // constraints.close();
+
+  std::cout<<"make_grid_and_dofs takes "<< std::endl;
 }
 
 template <int dim>
 void CoupledTH<dim>::assemble_P_system() {
+
+  Timer timer;
 
   // reset matreix to zero
   // p_mass_matrix = 0;
@@ -356,11 +387,13 @@ void CoupledTH<dim>::assemble_P_system() {
                                            P_bd_values);
   MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, P_solution,
                                      P_system_rhs);
+
+  std::cout<<"assemble_P_system takes "<< std::endl;                                  
 }
 
 template <int dim>
 void CoupledTH<dim>::assemble_T_system() {
-
+  Timer timer;
   // reset matreix to zero
   // T_mass_matrix = 0;
   // T_stiffness_matrix = 0;
@@ -508,10 +541,13 @@ void CoupledTH<dim>::assemble_T_system() {
                                            T_bd_values);
   MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, T_solution,
                                      T_system_rhs);
+
+  std::cout<<"assemble_T_system takes "<< std::endl;  
 }
 
 template <int dim>
 void CoupledTH<dim>::linear_solve_T() {
+  Timer timer;
   SolverControl solver_control(
       1000,
       1e-8 * T_system_rhs.l2_norm());               // setting for cg
@@ -526,6 +562,8 @@ void CoupledTH<dim>::linear_solve_T() {
 
   std::cout << "     " << solver_control.last_step() << " CG iterations."
             << std::endl;
+  
+  std::cout<<"linear_solve_T takes "<< std::endl;  
 }
 
 // @sect4{<code>CoupledTH::output_results</code>}
