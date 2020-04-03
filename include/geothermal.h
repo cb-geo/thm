@@ -76,6 +76,7 @@ class CoupledTH {
   SparseMatrix<double> T_mass_matrix;       // M_T
   SparseMatrix<double> P_stiffness_matrix;  // K_P
   SparseMatrix<double> T_stiffness_matrix;  // K_T
+  SparseMatrix<double> T_convection_matrix;  // C_T
   SparseMatrix<double> P_system_matrix;     // M_P + k*theta*K_P
   SparseMatrix<double> T_system_matrix;     // M_T + k*theta*K_T
 
@@ -86,11 +87,12 @@ class CoupledTH {
   Vector<double> P_system_rhs;    // right hand side of P system
   Vector<double> T_system_rhs;    // right hand side of T system
 
-  double time;                   // t
-  double time_step;              // dt
+  double time;                   // t               
   unsigned int timestep_number;  // n_t
 
-  const double theta;
+  const double theta = 0.5;
+  const double period = 25*3600*24; 
+  const double time_step = period / 50; 
 };
 
 template <int dim>
@@ -102,12 +104,7 @@ CoupledTH<dim>::CoupledTH(const unsigned int degree)  // initialization
       dof_handler(triangulation),
 
       time(0.0),
-      time_step(0.5 / 20),  // a time step constant at 1/500 (remember that one
-                            // period of the source on the right hand side was
-                            // set to 0.2 above, so we resolve each period with
-                            // 100 time steps)
-      timestep_number(0),
-      theta(0.5) {}
+      timestep_number(0){}
 
 // CHECK THE GRID INPUT
 template <int dim>
@@ -176,6 +173,7 @@ void CoupledTH<dim>::make_grid_and_dofs() {
   T_system_matrix.reinit(sparsity_pattern);
   T_mass_matrix.reinit(sparsity_pattern);
   T_stiffness_matrix.reinit(sparsity_pattern);
+  T_convection_matrix.reinit(sparsity_pattern);
   T_solution.reinit(dof_handler.n_dofs());
   old_T_solution.reinit(dof_handler.n_dofs());
   T_system_rhs.reinit(dof_handler.n_dofs());
@@ -217,9 +215,9 @@ void CoupledTH<dim>::assemble_P_system() {
 
   QGauss<dim - 1> T_face_quadrature_formula(T_degree + 1);
 
-  FEValues<dim> T_fe_values(
-      T_fe, T_quadrature_formula,
-      update_values | update_gradients | update_gradients | update_JxW_values);
+  FEValues<dim> T_fe_values(T_fe, T_quadrature_formula,
+                            update_values | update_gradients |
+                                update_quadrature_points | update_JxW_values);
 
   FEFaceValues<dim> T_fe_face_values(T_fe, T_face_quadrature_formula,
                                      update_values | update_normal_vectors |
@@ -231,9 +229,9 @@ void CoupledTH<dim>::assemble_P_system() {
 
   QGauss<dim - 1> P_face_quadrature_formula(P_degree + 1);
 
-  FEValues<dim> P_fe_values(
-      P_fe, P_quadrature_formula,
-      update_values | update_gradients | update_gradients | update_JxW_values);
+  FEValues<dim> P_fe_values(P_fe, P_quadrature_formula,
+                            update_values | update_gradients |
+                                update_quadrature_points | update_JxW_values);
 
   FEFaceValues<dim> P_fe_face_values(P_fe, P_face_quadrature_formula,
                                      update_values | update_normal_vectors |
@@ -297,7 +295,7 @@ void CoupledTH<dim>::assemble_P_system() {
     P_source_term.value_list(P_fe_values.get_quadrature_points(),
                              P_source_values);  // 一列q个
 
-    // loop for q_point ASSMBLING CELL METRIX
+    // loop for q_point ASSMBLING CELL METRIX (weak form equation writing)
     for (unsigned int q = 0; q < P_n_q_points; ++q) {
       for (unsigned int i = 0; i < P_dofs_per_cell; ++i) {
         const Tensor<1, dim> grad_phi_i_P = P_fe_values.shape_grad(i, q);
@@ -307,17 +305,16 @@ void CoupledTH<dim>::assemble_P_system() {
           const double phi_j_P = P_fe_values.shape_value(j, q);
           P_local_mass_matrix(i, j) += (phi_i_P * phi_j_P * P_fe_values.JxW(q));
           P_local_stiffness_matrix(i, j) +=
-              (EquationData::kappa * grad_phi_i_P * grad_phi_j_P *
+              (EquationData::perm*EquationData::B_w * grad_phi_i_P * grad_phi_j_P *
                P_fe_values.JxW(q));
         }
         P_local_rhs(i) +=
-            (phi_i_P * P_source_values[q] -
-             time_step * (1 - theta) * grad_phi_i_P * old_P_sol_grads[q]) *
-            P_fe_values.JxW(q);
+            (phi_i_P * P_source_values[q] +
+             phi_i_P * old_P_sol_values[q]) * P_fe_values.JxW(q);
       }
     }
 
-    // APPLIED BOUNDARY CONDITION
+    // APPLIED NEWMAN BOUNDARY CONDITION
     for (unsigned int face_no = 0; face_no < GeometryInfo<dim>::faces_per_cell;
          ++face_no) {
       if (cell->at_boundary(face_no)) {
@@ -330,8 +327,8 @@ void CoupledTH<dim>::assemble_P_system() {
 
         for (unsigned int q = 0; q < P_n_face_q_points; ++q) {
           for (unsigned int i = 0; i < P_dofs_per_cell; ++i) {
-            P_local_rhs(i) += -(P_fe_face_values.value(i, q) * QP_bd_values[q] *
-                                P_fe_face_values.JxW(q));
+            P_local_rhs(i) += -time_step * EquationData::B_w *(P_fe_face_values.shape_value(i, q) * 
+                              QP_bd_values[q] * P_fe_face_values.JxW(q));
           }
         }
       }
@@ -351,9 +348,9 @@ void CoupledTH<dim>::assemble_P_system() {
     }
     P_system_matrix.copy_from(P_mass_matrix);
     P_system_matrix.add(
-        theta * time_step,
+        time_step,
         P_stiffness_matrix);  // P_mass_matrix +
-                              // theta*time_step*P_stiffness_matrix
+                              // time_step*P_stiffness_matrix
   }
 
   // ADD DIRICLET BOUNDARY
@@ -428,6 +425,7 @@ void CoupledTH<dim>::assemble_T_system() {
   //  local element matrix
   FullMatrix<double> T_local_mass_matrix(T_dofs_per_cell, T_dofs_per_cell);
   FullMatrix<double> T_local_stiffness_matrix(T_dofs_per_cell, T_dofs_per_cell);
+  FullMatrix<double> T_local_convection_matrix(T_dofs_per_cell, T_dofs_per_cell);
   Vector<double> T_local_rhs(T_dofs_per_cell);
   std::vector<types::global_dof_index> T_local_dof_indices(T_dofs_per_cell);
 
@@ -444,10 +442,11 @@ void CoupledTH<dim>::assemble_T_system() {
     // initialization
     T_local_mass_matrix = 0;
     T_local_stiffness_matrix = 0;
+    T_local_convection_matrix = 0;
     T_local_rhs = 0;
     T_fe_values.reinit(cell);
     P_fe_values.reinit(cell);  //// may combine in the same cell
-    // get teh values at gauss point
+    // get the values at gauss point
     T_fe_values.get_function_values(old_T_solution, old_T_sol_values);
     T_fe_values.get_function_gradients(old_T_solution, old_T_sol_grads);
     P_fe_values.get_function_values(old_P_solution, old_P_sol_values);
@@ -457,7 +456,7 @@ void CoupledTH<dim>::assemble_T_system() {
     T_source_term.value_list(T_fe_values.get_quadrature_points(),
                              T_source_values);
 
-    // loop for q_point ASSMBLING CELL METRIX
+    // loop for q_point ASSMBLING CELL METRIX (weak form equation writing)
     for (unsigned int q = 0; q < T_n_q_points; ++q) {
       for (unsigned int i = 0; i < T_dofs_per_cell; ++i) {
         const Tensor<1, dim> grad_phi_i_T = T_fe_values.shape_grad(i, q);
@@ -467,13 +466,20 @@ void CoupledTH<dim>::assemble_T_system() {
           const double phi_j_T = T_fe_values.shape_value(j, q);
           T_local_mass_matrix(i, j) += (phi_i_T * phi_j_T * T_fe_values.JxW(q));
           T_local_stiffness_matrix(i, j) +=
-              (EquationData::kappa * grad_phi_i_T * grad_phi_j_T *
+              (EquationData::lam/EquationData::c_T * grad_phi_i_T * grad_phi_j_T *
                T_fe_values.JxW(q));
+          T_local_convection_matrix(i,j) += EquationData::c_w/EquationData::c_T * 
+                                            phi_i_T* (- EquationData::perm * 
+                                            old_P_sol_grads[q]*grad_phi_j_T *
+                                            T_fe_values.JxW(q));
         }
+        // T_local_rhs(i) +=
+        //     (phi_i_T * T_source_values[q] -
+        //      time_step * (1 - theta) * grad_phi_i_T * old_T_sol_grads[q]) *
+        //     T_fe_values.JxW(q);
         T_local_rhs(i) +=
-            (phi_i_T * T_source_values[q] -
-             time_step * (1 - theta) * grad_phi_i_T * old_T_sol_grads[q]) *
-            T_fe_values.JxW(q);
+            (phi_i_T * T_source_values[q] +
+             time_step * phi_i_T * old_T_sol_values[q]) * T_fe_values.JxW(q);
       }
     }
 
@@ -488,8 +494,8 @@ void CoupledTH<dim>::assemble_T_system() {
                                QT_bd_values);
         for (unsigned int q = 0; q < T_n_face_q_points; ++q) {
           for (unsigned int i = 0; i < T_dofs_per_cell; ++i) {
-            T_local_rhs(i) += -(T_fe_face_values.shape_value(i, q) *
-                                QT_bd_values[q] * T_fe_face_values.JxW(q));
+            T_local_rhs(i) += -T_fe_face_values.shape_value(i, q) *
+                                QT_bd_values[q] * T_fe_face_values.JxW(q);
           }
         }
       }
@@ -502,14 +508,21 @@ void CoupledTH<dim>::assemble_T_system() {
                           T_local_mass_matrix(i, j));
         T_stiffness_matrix.add(T_local_dof_indices[i], T_local_dof_indices[j],
                                T_local_stiffness_matrix(i, j));
+        T_convection_matrix.add(T_local_dof_indices[i], T_local_dof_indices[j],
+                               T_local_convection_matrix(i, j));
+        
       }
       T_system_rhs(T_local_dof_indices[i]) += T_local_rhs(i);
     }
     T_system_matrix.copy_from(T_mass_matrix);
     T_system_matrix.add(
-        theta * time_step,
+        time_step,
         T_stiffness_matrix);  // T_mass_matrix +
                               // theta*time_step*T_stiffness_matrix
+    T_system_matrix.add(
+        time_step,
+        T_convection_matrix);  
+                              
   }
 
   // ADD DIRICLET BOUNDARY
@@ -522,6 +535,7 @@ void CoupledTH<dim>::assemble_T_system() {
                                      T_system_rhs);
 
   timer.tock("assemble_T_system");
+
 }
 
 template <int dim>
@@ -577,6 +591,8 @@ void CoupledTH<dim>::run() {
   do {
     std::cout << "\nTimestep " << timestep_number;
 
+    assemble_P_system();
+
     assemble_T_system();
 
     linear_solve_T();
@@ -588,5 +604,5 @@ void CoupledTH<dim>::run() {
     std::cout << "\nt=" << time << ", dt=" << time_step << '.'
               << std::endl
               << std::endl;
-  } while (time <= 0.5);
+  } while (time <= period);
 }
