@@ -601,8 +601,7 @@ void CoupledTH<dim>::run() {
 
     time += time_step;
     ++timestep_number;
-    std::cout << "\nt=" << time << ", dt=" << time_step << '.'
-              << std::endl
+    std::cout << "\nt=" << time << ", dt=" << time_step << '.' << std::endl
               << std::endl;
   } while (time <= period);
 }
