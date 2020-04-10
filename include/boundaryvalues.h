@@ -62,8 +62,9 @@ double TemperatureDirichletBoundaryValues<dim>::value(
   // Assert(dim == 3, ExcNotImplemented());
 
   const double time = this->get_time();
-  return T0 + 10. * sin(time / (5*3600*24) * 3.1415926);  // boundary value is set to zero in
+  // return T0 + 10. * sin(time / (0.5*3600*24) * 3.1415926);  // boundary value is set to zero in
                                             // this case
+  return T0 ;                                          
 }
 
 // template <int dim>
