@@ -618,5 +618,13 @@ void CoupledTH<dim>::run() {
               << std::endl;
     old_T_solution = T_solution;
     // old_P_solution = P_solution;
+
+    // MatrixOut matrix_out;
+    // std::ofstream out ("2rhs_matrix_at_"+std::to_string(time));
+    // // matrix_out.build_patches (system_matrix, "system_matrix");
+    // // matrix_out.write_gnuplot (out);
+    // // system_matrix.print_formatted(out);
+    // system_rhs.print(out);
+    
   } while (time <= period);
 }
