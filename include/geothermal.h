@@ -16,6 +16,7 @@
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/precondition.h>
 #include <deal.II/lac/solver_cg.h>
+#include <deal.II/lac/solver_gmres.h>
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/vector.h>
 
@@ -59,7 +60,7 @@ class CoupledTH {
   void assemble_P_system();
   void linear_solve_P();
   void linear_solve_T();
-  void output_results() const;
+  void output_results(Vector<double>&, std::string) const;
 
   Triangulation<dim> triangulation;  // grid
   const unsigned int T_degree;       // element degree
@@ -91,7 +92,7 @@ class CoupledTH {
   unsigned int timestep_number;  // n_t
 
   const double theta = 0.5;
-  const double period = 1*3600*24; 
+  const double period = 0.01*3600*24; 
   const double time_step = period / 20; 
 };
 
@@ -323,7 +324,7 @@ void CoupledTH<dim>::assemble_P_system() {
     // APPLIED NEWMAN BOUNDARY CONDITION
     for (unsigned int face_no = 0; face_no < GeometryInfo<dim>::faces_per_cell;
          ++face_no) {
-      if (cell->at_boundary(face_no)) {
+      if (cell->at_boundary(face_no) && cell->face(face_no)->boundary_id() == 1) {
         P_fe_face_values.reinit(cell, face_no);
 
         // get boundary condition
@@ -359,16 +360,16 @@ void CoupledTH<dim>::assemble_P_system() {
                               // time_step*P_stiffness_matrix
   }
 
-  // ADD DIRICLET BOUNDARY
-  {
-    P_boundary.set_time(time);
+  // // ADD DIRICLET BOUNDARY
+  // {
+  //   P_boundary.set_time(time);
 
-    std::map<types::global_dof_index, double> P_bd_values;
-    VectorTools::interpolate_boundary_values(dof_handler, 1, P_boundary,
-                                           P_bd_values);
-    MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, P_solution,
-                                     P_system_rhs);
-  }
+  //   std::map<types::global_dof_index, double> P_bd_values;
+  //   VectorTools::interpolate_boundary_values(dof_handler, 1, P_boundary,
+  //                                          P_bd_values);
+  //   MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, P_solution,
+  //                                    P_system_rhs);
+  // }
   timer.tock("assemble_P_system");
 }
 
@@ -496,7 +497,7 @@ void CoupledTH<dim>::assemble_T_system() {
     // APPLIED NEUMAN BOUNDARY CONDITION
     for (unsigned int face_no = 0; face_no < GeometryInfo<dim>::faces_per_cell;
          ++face_no) {
-      if (cell->at_boundary(face_no)) {
+      if (cell->at_boundary(face_no) && cell->face(face_no)->boundary_id() == 1) {
         T_fe_face_values.reinit(cell, face_no);
         // set boudnary condition
         QT_boundary.set_time(time);
@@ -551,22 +552,51 @@ void CoupledTH<dim>::assemble_T_system() {
 }
 
 template <int dim>
-void CoupledTH<dim>::linear_solve_T() {
+void CoupledTH<dim>::linear_solve_P() {
   cbgeo::Clock timer;
   timer.tick();
   SolverControl solver_control(
       1000,
-      1e-8 * T_system_rhs.l2_norm());               // setting for cg
+      1e-8 * P_system_rhs.l2_norm());               // setting for cg
   SolverCG<> cg(solver_control);                    // config cg
   PreconditionSSOR<> preconditioner;                // precond
-  preconditioner.initialize(T_system_matrix, 1.0);  // initialize precond
-  cg.solve(T_system_matrix, T_solution, T_system_rhs,
+  preconditioner.initialize(P_system_matrix, 1.0);  // initialize precond
+  cg.solve(P_system_matrix, P_solution, P_system_rhs,
            preconditioner);  // solve eq
   // constraints.distribute(solution);  // make sure if the value is
   // consistent at
   // the constraint point
 
   std::cout << "\nCG iterations: " << solver_control.last_step() << std::endl;
+
+  timer.tock("linear_solve_P");
+}
+
+
+
+template <int dim>
+void CoupledTH<dim>::linear_solve_T() {
+  cbgeo::Clock timer;
+  timer.tick();
+  SolverControl solver_control(std::max<std::size_t>(
+      1000, T_system_rhs.size()/10),
+      1e-10 * T_system_rhs.l2_norm());               // setting for solver
+  SolverGMRES<> solver(solver_control);                    // config solver
+  PreconditionJacobi<> preconditioner;                // precond
+  preconditioner.initialize(T_system_matrix, 1.0);  // initialize precond
+  solver.solve(T_system_matrix, T_solution, T_system_rhs,
+           preconditioner);  // solve eq
+  
+  Vector<double> residual(dof_handler.n_dofs());
+  T_system_matrix.vmult(residual, T_solution);
+  residual -= T_system_rhs;
+  
+  std::cout << "  Iterations required for convergence:    "
+            << solver_control.last_step()<<"\n"
+            << "  Max norm of residual:      "
+            << residual.linfty_norm() << "\n";
+
+  // constraints.distribute(solution);  // make sure if the value is consistent at the constraint point
 
   timer.tock("linear_solve_T");
 }
@@ -575,24 +605,23 @@ void CoupledTH<dim>::linear_solve_T() {
 //
 // Neither is there anything new in generating graphical output:
 template <int dim>
-void CoupledTH<dim>::output_results() const {
-  DataOut<dim> T_data_out;
+void CoupledTH<dim>::output_results(Vector<double>& solution, std::string var_name) const {
+  DataOut<dim> data_out;
 
-  T_data_out.attach_dof_handler(dof_handler);
-  T_data_out.add_data_vector(T_solution, "U");
+  data_out.attach_dof_handler(dof_handler);
+  data_out.add_data_vector(solution, var_name);
 
-  T_data_out.build_patches();
+  data_out.build_patches();
 
-  const std::string filename =
-      "solution-" + Utilities::int_to_string(timestep_number, 3) + ".vtk";
+  const std::string filename = var_name +
+      "-solution-" + Utilities::int_to_string(timestep_number, 3) + ".vtk";
   std::ofstream output(filename.c_str());
-  T_data_out.write_vtk(output);
+  data_out.write_vtk(output);
 }
 
 template <int dim>
 void CoupledTH<dim>::run() {
   make_grid_and_dofs();
-  // assemble_T_system();
 
   VectorTools::interpolate(dof_handler,
                            EquationData::TemperatureInitialValues<dim>(),
@@ -606,18 +635,21 @@ void CoupledTH<dim>::run() {
 
     assemble_P_system();
 
+    linear_solve_P();
+
     assemble_T_system();
 
     linear_solve_T();
 
-    output_results();
+    output_results(T_solution, "T");
+    output_results(P_solution, "P");
 
     time += time_step;
     ++timestep_number;
     std::cout << "\nt=" << time << ", dt=" << time_step << '.' << std::endl
               << std::endl;
     old_T_solution = T_solution;
-    // old_P_solution = P_solution;
+    old_P_solution = P_solution;
 
     // MatrixOut matrix_out;
     // std::ofstream out ("2rhs_matrix_at_"+std::to_string(time));

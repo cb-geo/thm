@@ -35,7 +35,7 @@ double PressureDirichletBoundaryValues<dim>::value(
   // Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
   // Assert(dim == 3, ExcNotImplemented());
   const double time = this->get_time();  // get time
-  return P0;
+  // return Pb;
 }
 
 template <int dim>
@@ -64,7 +64,7 @@ double TemperatureDirichletBoundaryValues<dim>::value(
   const double time = this->get_time();
   // return T0 + 10. * sin(time / (0.5*3600*24) * 3.1415926);  // boundary value is set to zero in
                                             // this case
-  return T0 ;                                          
+  return Tb ;                                          
 }
 
 // template <int dim>
@@ -97,7 +97,7 @@ double PressureNeumanBoundaryValues<dim>::value(
   // Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
   // Assert(dim == 3, ExcNotImplemented());
   double time = this->get_time();  // get time
-  return 0.;
+  return Qb;
 }
 
 template <int dim>
