@@ -91,8 +91,8 @@ class CoupledTH {
   double time;                   // t               
   unsigned int timestep_number;  // n_t
 
-  const double theta = 0.5;
-  const double period = 0.01*3600*24; 
+  const double theta = 0.3;
+  const double period = 1*3600*24; 
   const double time_step = period / 20; 
 };
 
@@ -380,7 +380,7 @@ void CoupledTH<dim>::assemble_T_system() {
   // reset matreix to zero
   T_stiffness_matrix = 0;
   T_mass_matrix = 0;
-  T_stiffness_matrix = 0;
+  T_convection_matrix = 0;
   T_system_matrix = 0;
   T_system_rhs = 0;
   T_solution = 0;
@@ -579,8 +579,8 @@ void CoupledTH<dim>::linear_solve_T() {
   cbgeo::Clock timer;
   timer.tick();
   SolverControl solver_control(std::max<std::size_t>(
-      1000, T_system_rhs.size()/10),
-      1e-10 * T_system_rhs.l2_norm());               // setting for solver
+      4000, T_system_rhs.size()/10),
+      1e-8 * T_system_rhs.l2_norm());               // setting for solver
   SolverGMRES<> solver(solver_control);                    // config solver
   PreconditionJacobi<> preconditioner;                // precond
   preconditioner.initialize(T_system_matrix, 1.0);  // initialize precond
@@ -637,19 +637,22 @@ void CoupledTH<dim>::run() {
 
     linear_solve_P();
 
+    old_P_solution = P_solution;
+    
     assemble_T_system();
 
     linear_solve_T();
 
+    old_T_solution = T_solution;
+    
     output_results(T_solution, "T");
     output_results(P_solution, "P");
+
 
     time += time_step;
     ++timestep_number;
     std::cout << "\nt=" << time << ", dt=" << time_step << '.' << std::endl
               << std::endl;
-    old_T_solution = T_solution;
-    old_P_solution = P_solution;
 
     // MatrixOut matrix_out;
     // std::ofstream out ("2rhs_matrix_at_"+std::to_string(time));
