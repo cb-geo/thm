@@ -1,4 +1,6 @@
-project(thm LANGUAGES CXX)
+#project(thm LANGUAGES CXX)
+# Set the name of the project and target:
+SET(TARGET "thm")
 
 # Require C++14-compliant compiler; only available for CMake v3.10 and up
 set(CMAKE_CXX_STANDARD 14)
@@ -36,22 +38,42 @@ option(THM_BUILD_TESTING "enable testing for thm" ON)
 # CMake Modules
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
+# Dealii
+FIND_PACKAGE(deal.II 8.5.0 QUIET
+  HINTS ${deal.II_DIR} ${DEAL_II_DIR} ../ ../../ $ENV{DEAL_II_DIR}
+  )
+if(NOT ${deal.II_FOUND})
+  MESSAGE(FATAL_ERROR "\n"
+    "*** Could not locate a (sufficiently recent) version of deal.II. ***\n\n"
+    "You may want to either pass a flag -DDEAL_II_DIR=/path/to/deal.II to cmake\n"
+    "or set an environment variable \"DEAL_II_DIR\" that contains this path."
+    )
+endif()
 
+if (${deal.II_FOUND})
+  include_directories(${DEAL_II_DIR}/include/)
+endif()
 
-# Include directories
-include_directories(BEFORE
-  ${thm_SOURCE_DIR}/include/
-  ${thm_SOURCE_DIR}/external/
+#thm executable
+SET(thm_src
+  ./src/main.cc
 )
 
-# thm executable
-#SET(thm_src
-#  ${thm_SOURCE_DIR}/src/thm.cc
-#)
+# Include directories
+include_directories(
+  ./include/
+  ./external/
+)
+
+SET(TARGET_SRC ${thm_src})
+
+DEAL_II_INITIALIZE_CACHED_VARIABLES()
+PROJECT(${TARGET})
+DEAL_II_INVOKE_AUTOPILOT()
 
 #add_library(lthm SHARED ${thm_src})
 
-add_executable(thm ${thm_SOURCE_DIR}/src/main.cc)
+# add_executable(geothm ${thm_SOURCE_DIR}/src/main.cc)
 #target_link_libraries(thm lthm)
 
 # Unit test

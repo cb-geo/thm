@@ -59,3 +59,10 @@ configure.scan
 *missing
 *stamp-h1
 benchmarks/
+build/*
+*copy*
+*.geo*
+*.msh*
+*.db*
+*.nas*
+*.vscode/*
