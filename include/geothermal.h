@@ -149,7 +149,7 @@ void CoupledTH<dim>::make_grid_and_dofs() {
   timer.tick();
   GridIn<dim> gridin;  // instantiate a gridinput
   gridin.attach_triangulation(triangulation);
-  std::ifstream f("mesh.msh");
+  std::ifstream f("mesh3.msh");
   gridin.read_msh(f);
 
   print_mesh_info(triangulation, "grid-1.eps");
@@ -316,7 +316,8 @@ void CoupledTH<dim>::assemble_P_system() {
                P_fe_values.JxW(q));
         }
         P_local_rhs(i) +=
-            (phi_i_P * P_source_values[q] +
+            (time_step* phi_i_P * P_source_values[q] + 
+             time_step* grad_phi_i_P*(Point<dim>(0, 0, 1))*(-EquationData::B_w*EquationData::perm*EquationData::P_grad) +
              phi_i_P * old_P_sol_values[q]) * P_fe_values.JxW(q);
       }
     }
@@ -324,7 +325,7 @@ void CoupledTH<dim>::assemble_P_system() {
     // APPLIED NEWMAN BOUNDARY CONDITION
     for (unsigned int face_no = 0; face_no < GeometryInfo<dim>::faces_per_cell;
          ++face_no) {
-      if (cell->at_boundary(face_no) && cell->face(face_no)->boundary_id() == 1) {
+      if (cell->at_boundary(face_no) && cell->face(face_no)->boundary_id() == 2) {
         P_fe_face_values.reinit(cell, face_no);
 
         // get boundary condition
@@ -361,15 +362,20 @@ void CoupledTH<dim>::assemble_P_system() {
   }
 
   // // ADD DIRICLET BOUNDARY
-  // {
-  //   P_boundary.set_time(time);
+  {
+    
+    for (int i = 0; i < EquationData::num_P_bnd_id; i++)
+    {
 
-  //   std::map<types::global_dof_index, double> P_bd_values;
-  //   VectorTools::interpolate_boundary_values(dof_handler, 1, P_boundary,
-  //                                          P_bd_values);
-  //   MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, P_solution,
-  //                                    P_system_rhs);
-  // }
+      P_boundary.set_time(time);
+      P_boundary.set_boundary_id(*(EquationData::P_bnd_id + i));
+      std::map<types::global_dof_index, double> P_bd_values;
+      VectorTools::interpolate_boundary_values(dof_handler, *(EquationData::P_bnd_id + i), P_boundary,
+                                           P_bd_values); //i表示边界的index
+      MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, P_solution,
+                                       P_system_rhs);
+    }
+  }
   timer.tock("assemble_P_system");
 }
 
@@ -497,7 +503,7 @@ void CoupledTH<dim>::assemble_T_system() {
     // APPLIED NEUMAN BOUNDARY CONDITION
     for (unsigned int face_no = 0; face_no < GeometryInfo<dim>::faces_per_cell;
          ++face_no) {
-      if (cell->at_boundary(face_no) && cell->face(face_no)->boundary_id() == 1) {
+      if (cell->at_boundary(face_no) && cell->face(face_no)->boundary_id() == 2) {
         T_fe_face_values.reinit(cell, face_no);
         // set boudnary condition
         QT_boundary.set_time(time);
@@ -539,13 +545,18 @@ void CoupledTH<dim>::assemble_T_system() {
 
   //ADD DIRICHLET BOUNDARY
   {
-    T_boundary.set_time(time);
+    
+    for (int i = 0; i < EquationData::num_T_bnd_id; i++)
+    {
 
-    std::map<types::global_dof_index, double> T_bd_values;
-    VectorTools::interpolate_boundary_values(dof_handler, 1, T_boundary,
+      T_boundary.set_time(time);
+      T_boundary.set_boundary_id(*(EquationData::T_bnd_id + i));
+      std::map<types::global_dof_index, double> T_bd_values;
+      VectorTools::interpolate_boundary_values(dof_handler, *(EquationData::T_bnd_id + i), T_boundary,
                                            T_bd_values); //i表示边界的index
-    MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, T_solution,
-                                     T_system_rhs);
+      MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, T_solution,
+                                       T_system_rhs);
+    }
   }
   timer.tock("assemble_T_system");
   
