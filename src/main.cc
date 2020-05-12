@@ -1,10 +1,14 @@
 #include "boundaryvalues.h"
 #include "initialvalues.h"
 #include "sourceterm.h"
-
 #include "geothermal.h"
 
+void get_parameter(std::string filename, std::vector<double>& coord,std::vector<double>& data);
+
 int main() {
+
+  get_parameter("parameters.txt",EquationData::perm_list_coord,EquationData::perm_list_data);
+
   try {
     using namespace dealii;
     CoupledTH<3> coupled_TH_solver(1);
@@ -62,3 +66,4 @@ int main() {
   //     return 1;
   //   }
 }
+
