@@ -5,6 +5,7 @@ void get_parameter(std::string filename, std::vector<double>& coord,std::vector<
 
     double v1,v2;
     io::CSVReader<2> in(filename);
+    coord.erase(coord.begin());
     while(in.read_row(v1, v2))
     {
       coord.push_back(v1);

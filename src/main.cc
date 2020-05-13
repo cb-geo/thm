@@ -7,7 +7,7 @@ void get_parameter(std::string filename, std::vector<double>& coord,std::vector<
 
 int main() {
 
-  get_parameter("parameters.txt",EquationData::perm_list_coord,EquationData::perm_list_data);
+  get_parameter("parameters.csv",EquationData::perm_list_coord,EquationData::perm_list_data);
 
   try {
     using namespace dealii;
