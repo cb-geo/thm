@@ -36,10 +36,10 @@ endif()
 option(THM_BUILD_TESTING "enable testing for thm" ON)
 
 # Add -O0 to remove optimizations when using gcc
-IF(CMAKE_COMPILER_IS_GNUCC)
+# IF(CMAKE_COMPILER_IS_GNUCC)
   SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
   SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
-ENDIF(CMAKE_COMPILER_IS_GNUCC)
+# ENDIF(CMAKE_COMPILER_IS_GNUCC)
 
 # CMake Modules
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
@@ -63,12 +63,15 @@ endif()
 #thm executable
 SET(thm_src
   ./src/main.cc
+  ./src/get_parameter.cc
+  ./src/interpolation1d.cc
 )
 
 # Include directories
 include_directories(
   ./include/
   ./external/
+  
 )
 
 SET(TARGET_SRC ${thm_src})

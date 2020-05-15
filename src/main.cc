@@ -1,13 +1,15 @@
-#include "boundaryvalues.h"
+#include "clock.h"
+#include "globalvariables.h"
+#include "externalfunc.h"
 #include "initialvalues.h"
+#include "boundaryvalues.h"
 #include "sourceterm.h"
 #include "geothermal.h"
 
-void get_parameter(std::string filename, std::vector<double>& coord,std::vector<double>& data);
 
 int main() {
 
-  get_parameter("parameters.csv",EquationData::perm_list_coord,EquationData::perm_list_data);
+  get_parameter("parameters.csv",EquationData::perm_list,1);
 
   try {
     using namespace dealii;

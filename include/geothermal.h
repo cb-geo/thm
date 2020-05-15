@@ -44,8 +44,7 @@
 #include <deal.II/numerics/solution_transfer.h>
 #include <deal.II/numerics/vector_tools.h>
 
-#include "clock.h"
-#include "globalvariables.h"
+
 
 using namespace dealii;
 
@@ -268,6 +267,9 @@ void CoupledTH<dim>::assemble_P_system() {
   std::vector<double> P_source_values(P_n_q_points);
   std::vector<double> QP_bd_values(P_n_face_q_points);
 
+  // store the coordinate of gauss point
+  // const Point<dim> P_quadrature_coord;
+
   //  local element matrix
   FullMatrix<double> P_local_mass_matrix(P_dofs_per_cell, P_dofs_per_cell);
   FullMatrix<double> P_local_stiffness_matrix(P_dofs_per_cell, P_dofs_per_cell);
@@ -305,6 +307,11 @@ void CoupledTH<dim>::assemble_P_system() {
 
     // loop for q_point ASSMBLING CELL METRIX (weak form equation writing)
     for (unsigned int q = 0; q < P_n_q_points; ++q) {
+
+      const auto P_quadrature_coord = P_fe_values.quadrature_point(q);  
+      EquationData::perm = interpolate1d(EquationData::perm_list, 
+                                        P_quadrature_coord[2], false); // step-5
+
       for (unsigned int i = 0; i < P_dofs_per_cell; ++i) {
         const Tensor<1, dim> grad_phi_i_P = P_fe_values.shape_grad(i, q);
         const double phi_i_P = P_fe_values.shape_value(i, q);

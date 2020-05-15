@@ -13,14 +13,14 @@
 
 namespace EquationData {
 
-const double perm = 1e-5/1000/9.8;
+double perm = 1e-5/1000/9.8;
 const double c_T = 1.2e6;
 const double lam = 1.2;
 const double c_w = 1e6;
 const double B_w = 1e5;
 
-std::vector<double> perm_list_coord = {0};
-std::vector<double> perm_list_data = {0};
+std::vector<std::vector<double>> perm_list = {{0,0}};
+
 
 // Temperature seetings
 const int num_T_bnd_id = 4;

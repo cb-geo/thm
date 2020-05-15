@@ -3,7 +3,7 @@
 #include <fstream>
 #include <iostream>
 
-// #include <deal.II/numerics/vector_tools.h>
+#include <deal.II/numerics/vector_tools.h>
 #include <deal.II/base/function.h>
 #include <deal.II/lac/vector.h>
 
