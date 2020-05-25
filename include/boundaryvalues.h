@@ -25,8 +25,8 @@ class PressureDirichletBoundaryValues : public Function<dim> {
   virtual void set_boundary_id(int bnd_id) { boundary_id = bnd_id; }
 
  private:
-  const double period{0.};  // value
-  int boundary_id{0};
+  const double period;  // value
+  int boundary_id{-1};
 };
 
 template <int dim>
@@ -61,7 +61,7 @@ class TemperatureDirichletBoundaryValues : public Function<dim> {
 
  private:
   const double period;  // value
-  int boundary_id;
+  int boundary_id{-1};
 };
 
 template <int dim>
