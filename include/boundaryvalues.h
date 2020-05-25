@@ -3,9 +3,9 @@
 #include <fstream>
 #include <iostream>
 
-#include <deal.II/numerics/vector_tools.h>
 #include <deal.II/base/function.h>
 #include <deal.II/lac/vector.h>
+#include <deal.II/numerics/vector_tools.h>
 
 #include "globalvariables.h"
 
@@ -22,14 +22,11 @@ class PressureDirichletBoundaryValues : public Function<dim> {
 
   // virtual void vector_value(const Point<dim>& p,  //放在这里没啥用
   //                           Vector<double>& value) const;
-  virtual void set_boundary_id(int bnd_id){
-    boundary_id = bnd_id;
-  }
+  virtual void set_boundary_id(int bnd_id) { boundary_id = bnd_id; }
 
  private:
   const double period;  // value
-  int boundary_id;
-  
+  int boundary_id{-1};
 };
 
 template <int dim>
@@ -41,19 +38,13 @@ double PressureDirichletBoundaryValues<dim>::value(
   // Assert(dim == 3, ExcNotImplemented());
   const double time = this->get_time();  // get time
   // return Pb;
-  if (boundary_id == 4)
-  {
-    return Pb_top; 
-  } 
-  else if (boundary_id == 3)
-  {
-    return Pb_top + P_grad*(0. - p[2]); 
-  } 
-  else if (boundary_id == 5)
-  {
-    return Pb_top + P_grad*(0. - p[2]);
+  if (boundary_id == 4) {
+    return Pb_top;
+  } else if (boundary_id == 3) {
+    return Pb_top + P_grad * (0. - p[2]);
+  } else if (boundary_id == 5) {
+    return Pb_top + P_grad * (0. - p[2]);
   }
-
 }
 
 template <int dim>
@@ -66,13 +57,11 @@ class TemperatureDirichletBoundaryValues : public Function<dim> {
                        const unsigned int component = 0) const;  // boundary
   // virtual void vector_value(const Point<dim>& p,  //放在这里没啥用
   //                           Vector<double>& value) const;
-  virtual void set_boundary_id(int bnd_id){
-    boundary_id = bnd_id;
-  }
+  virtual void set_boundary_id(int bnd_id) { boundary_id = bnd_id; }
 
  private:
   const double period;  // value
-  int boundary_id;
+  int boundary_id{-1};
 };
 
 template <int dim>
@@ -84,25 +73,17 @@ double TemperatureDirichletBoundaryValues<dim>::value(
   // Assert(dim == 3, ExcNotImplemented());
 
   const double time = this->get_time();
-  // return T0 + 10. * sin(time / (0.5*3600*24) * 3.1415926);  // boundary value is set to zero in
-                                            // this case
-  if (boundary_id == 2)
-  {
-    return Tb_well ;                                          
-  } 
-  else if (boundary_id == 4)
-  {
-    return Tb_top; 
-  } 
-  else if (boundary_id == 3)
-  {
-    return Tb_top + T_grad*(0. - p[2]);
-  } 
-  else if (boundary_id == 5)
-  {
-    return Tb_top + T_grad*(0. - p[2]);
+  // return T0 + 10. * sin(time / (0.5*3600*24) * 3.1415926);  // boundary value
+  // is set to zero in this case
+  if (boundary_id == 2) {
+    return Tb_well;
+  } else if (boundary_id == 4) {
+    return Tb_top;
+  } else if (boundary_id == 3) {
+    return Tb_top + T_grad * (0. - p[2]);
+  } else if (boundary_id == 5) {
+    return Tb_top + T_grad * (0. - p[2]);
   }
-  
 }
 
 // template <int dim>

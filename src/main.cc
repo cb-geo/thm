@@ -1,15 +1,15 @@
-#include "clock.h"
-#include "globalvariables.h"
-#include "externalfunc.h"
-#include "initialvalues.h"
 #include "boundaryvalues.h"
+#include "clock.h"
+#include "externalfunc.h"
+#include "globalvariables.h"
+#include "initialvalues.h"
 #include "sourceterm.h"
-#include "geothermal.h"
 
+#include "geothermal.h"
 
 int main() {
 
-  get_parameter("parameters.csv",EquationData::perm_list,1);
+  get_parameter("parameters.csv", EquationData::perm_list, 1);
 
   try {
     using namespace dealii;
@@ -68,4 +68,3 @@ int main() {
   //     return 1;
   //   }
 }
-

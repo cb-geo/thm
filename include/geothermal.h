@@ -44,8 +44,6 @@
 #include <deal.II/numerics/solution_transfer.h>
 #include <deal.II/numerics/vector_tools.h>
 
-
-
 using namespace dealii;
 
 template <int dim>
@@ -72,14 +70,14 @@ class CoupledTH {
 
   // ConstraintMatrix constraints;  // hanging node
 
-  SparsityPattern sparsity_pattern;         // sparsity
-  SparseMatrix<double> P_mass_matrix;       // M_P
-  SparseMatrix<double> T_mass_matrix;       // M_T
-  SparseMatrix<double> P_stiffness_matrix;  // K_P
-  SparseMatrix<double> T_stiffness_matrix;  // K_T
+  SparsityPattern sparsity_pattern;          // sparsity
+  SparseMatrix<double> P_mass_matrix;        // M_P
+  SparseMatrix<double> T_mass_matrix;        // M_T
+  SparseMatrix<double> P_stiffness_matrix;   // K_P
+  SparseMatrix<double> T_stiffness_matrix;   // K_T
   SparseMatrix<double> T_convection_matrix;  // C_T
-  SparseMatrix<double> P_system_matrix;     // M_P + k*theta*K_P
-  SparseMatrix<double> T_system_matrix;     // M_T + k*theta*K_T
+  SparseMatrix<double> P_system_matrix;      // M_P + k*theta*K_P
+  SparseMatrix<double> T_system_matrix;      // M_T + k*theta*K_T
 
   Vector<double> P_solution;      // P solution at n
   Vector<double> T_solution;      // T solution at n
@@ -88,12 +86,12 @@ class CoupledTH {
   Vector<double> P_system_rhs;    // right hand side of P system
   Vector<double> T_system_rhs;    // right hand side of T system
 
-  double time;                   // t               
+  double time;                   // t
   unsigned int timestep_number;  // n_t
 
   const double theta = 0.3;
-  const double period = 1*3600*24; 
-  const double time_step = period / 20; 
+  const double period = 1 * 3600 * 24;
+  const double time_step = period / 20;
 };
 
 template <int dim>
@@ -105,7 +103,7 @@ CoupledTH<dim>::CoupledTH(const unsigned int degree)  // initialization
       dof_handler(triangulation),
 
       time(0.0),
-      timestep_number(0){}
+      timestep_number(0) {}
 
 // CHECK THE GRID INPUT
 template <int dim>
@@ -178,7 +176,6 @@ void CoupledTH<dim>::make_grid_and_dofs() {
   T_system_rhs.reinit(dof_handler.n_dofs());
   T_solution.reinit(dof_handler.n_dofs());
   old_T_solution.reinit(dof_handler.n_dofs());
-  
 
   // sparsity pattern for P
   DynamicSparsityPattern P_dsp(dof_handler.n_dofs());  // sparsity
@@ -193,7 +190,6 @@ void CoupledTH<dim>::make_grid_and_dofs() {
   P_system_rhs.reinit(dof_handler.n_dofs());
   P_solution.reinit(dof_handler.n_dofs());
   old_P_solution.reinit(dof_handler.n_dofs());
-  
 
   // constraints.clear();
   // DoFTools::make_hanging_node_constraints(
@@ -308,9 +304,9 @@ void CoupledTH<dim>::assemble_P_system() {
     // loop for q_point ASSMBLING CELL METRIX (weak form equation writing)
     for (unsigned int q = 0; q < P_n_q_points; ++q) {
 
-      const auto P_quadrature_coord = P_fe_values.quadrature_point(q);  
-      EquationData::perm = interpolate1d(EquationData::perm_list, 
-                                        P_quadrature_coord[2], false); // step-5
+      const auto P_quadrature_coord = P_fe_values.quadrature_point(q);
+      EquationData::perm = interpolate1d(
+          EquationData::perm_list, P_quadrature_coord[2], false);  // step-5
 
       for (unsigned int i = 0; i < P_dofs_per_cell; ++i) {
         const Tensor<1, dim> grad_phi_i_P = P_fe_values.shape_grad(i, q);
@@ -320,20 +316,23 @@ void CoupledTH<dim>::assemble_P_system() {
           const double phi_j_P = P_fe_values.shape_value(j, q);
           P_local_mass_matrix(i, j) += (phi_i_P * phi_j_P * P_fe_values.JxW(q));
           P_local_stiffness_matrix(i, j) +=
-              (EquationData::perm*EquationData::B_w * grad_phi_i_P * grad_phi_j_P *
-               P_fe_values.JxW(q));
+              (EquationData::perm * EquationData::B_w * grad_phi_i_P *
+               grad_phi_j_P * P_fe_values.JxW(q));
         }
-        P_local_rhs(i) +=
-            (time_step* phi_i_P * P_source_values[q] + 
-             time_step* grad_phi_i_P*(Point<dim>(0, 0, 1))*(-EquationData::B_w*EquationData::perm*EquationData::P_grad) +
-             phi_i_P * old_P_sol_values[q]) * P_fe_values.JxW(q);
+        P_local_rhs(i) += (time_step * phi_i_P * P_source_values[q] +
+                           time_step * grad_phi_i_P * (Point<dim>(0, 0, 1)) *
+                               (-EquationData::B_w * EquationData::perm *
+                                EquationData::P_grad) +
+                           phi_i_P * old_P_sol_values[q]) *
+                          P_fe_values.JxW(q);
       }
     }
 
     // APPLIED NEWMAN BOUNDARY CONDITION
     for (unsigned int face_no = 0; face_no < GeometryInfo<dim>::faces_per_cell;
          ++face_no) {
-      if (cell->at_boundary(face_no) && cell->face(face_no)->boundary_id() == 2) {
+      if (cell->at_boundary(face_no) &&
+          cell->face(face_no)->boundary_id() == 2) {
         P_fe_face_values.reinit(cell, face_no);
 
         // get boundary condition
@@ -343,8 +342,9 @@ void CoupledTH<dim>::assemble_P_system() {
 
         for (unsigned int q = 0; q < P_n_face_q_points; ++q) {
           for (unsigned int i = 0; i < P_dofs_per_cell; ++i) {
-            P_local_rhs(i) += -time_step * EquationData::B_w *(P_fe_face_values.shape_value(i, q) * 
-                              QP_bd_values[q] * P_fe_face_values.JxW(q));
+            P_local_rhs(i) += -time_step * EquationData::B_w *
+                              (P_fe_face_values.shape_value(i, q) *
+                               QP_bd_values[q] * P_fe_face_values.JxW(q));
           }
         }
       }
@@ -363,25 +363,24 @@ void CoupledTH<dim>::assemble_P_system() {
       P_system_rhs(P_local_dof_indices[i]) += P_local_rhs(i);
     }
     P_system_matrix.copy_from(P_mass_matrix);
-    P_system_matrix.add(
-        time_step,
-        P_stiffness_matrix);  // P_mass_matrix +
-                              // time_step*P_stiffness_matrix
+    P_system_matrix.add(time_step,
+                        P_stiffness_matrix);  // P_mass_matrix +
+                                              // time_step*P_stiffness_matrix
   }
 
   // // ADD DIRICLET BOUNDARY
   {
-    
-    for (int i = 0; i < EquationData::num_P_bnd_id; i++)
-    {
+
+    for (int i = 0; i < EquationData::num_P_bnd_id; i++) {
 
       P_boundary.set_time(time);
       P_boundary.set_boundary_id(*(EquationData::P_bnd_id + i));
       std::map<types::global_dof_index, double> P_bd_values;
-      VectorTools::interpolate_boundary_values(dof_handler, *(EquationData::P_bnd_id + i), P_boundary,
-                                           P_bd_values); //i表示边界的index
-      MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, P_solution,
-                                       P_system_rhs);
+      VectorTools::interpolate_boundary_values(
+          dof_handler, *(EquationData::P_bnd_id + i), P_boundary,
+          P_bd_values);  // i表示边界的index
+      MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix,
+                                         P_solution, P_system_rhs);
     }
   }
   timer.tock("assemble_P_system");
@@ -450,7 +449,8 @@ void CoupledTH<dim>::assemble_T_system() {
   //  local element matrix
   FullMatrix<double> T_local_mass_matrix(T_dofs_per_cell, T_dofs_per_cell);
   FullMatrix<double> T_local_stiffness_matrix(T_dofs_per_cell, T_dofs_per_cell);
-  FullMatrix<double> T_local_convection_matrix(T_dofs_per_cell, T_dofs_per_cell);
+  FullMatrix<double> T_local_convection_matrix(T_dofs_per_cell,
+                                               T_dofs_per_cell);
   Vector<double> T_local_rhs(T_dofs_per_cell);
   std::vector<types::global_dof_index> T_local_dof_indices(T_dofs_per_cell);
 
@@ -491,27 +491,28 @@ void CoupledTH<dim>::assemble_T_system() {
           const double phi_j_T = T_fe_values.shape_value(j, q);
           T_local_mass_matrix(i, j) += (phi_i_T * phi_j_T * T_fe_values.JxW(q));
           T_local_stiffness_matrix(i, j) +=
-              (EquationData::lam/EquationData::c_T * grad_phi_i_T * grad_phi_j_T *
+              (EquationData::lam / EquationData::c_T * grad_phi_i_T *
+               grad_phi_j_T * T_fe_values.JxW(q));
+          T_local_convection_matrix(i, j) +=
+              EquationData::c_w / EquationData::c_T * phi_i_T *
+              (-EquationData::perm * old_P_sol_grads[q] * grad_phi_j_T *
                T_fe_values.JxW(q));
-          T_local_convection_matrix(i,j) += EquationData::c_w/EquationData::c_T * 
-                                            phi_i_T* (- EquationData::perm * 
-                                            old_P_sol_grads[q]*grad_phi_j_T *
-                                            T_fe_values.JxW(q));
         }
         // T_local_rhs(i) +=
         //     (phi_i_T * T_source_values[q] -
         //      time_step * (1 - theta) * grad_phi_i_T * old_T_sol_grads[q]) *
         //     T_fe_values.JxW(q);
         T_local_rhs(i) +=
-            (time_step * T_source_values[q] + old_T_sol_values[q]) * 
-            phi_i_T * T_fe_values.JxW(q);
+            (time_step * T_source_values[q] + old_T_sol_values[q]) * phi_i_T *
+            T_fe_values.JxW(q);
       }
     }
 
     // APPLIED NEUMAN BOUNDARY CONDITION
     for (unsigned int face_no = 0; face_no < GeometryInfo<dim>::faces_per_cell;
          ++face_no) {
-      if (cell->at_boundary(face_no) && cell->face(face_no)->boundary_id() == 2) {
+      if (cell->at_boundary(face_no) &&
+          cell->face(face_no)->boundary_id() == 2) {
         T_fe_face_values.reinit(cell, face_no);
         // set boudnary condition
         QT_boundary.set_time(time);
@@ -519,7 +520,7 @@ void CoupledTH<dim>::assemble_T_system() {
                                QT_bd_values);
         for (unsigned int q = 0; q < T_n_face_q_points; ++q) {
           for (unsigned int i = 0; i < T_dofs_per_cell; ++i) {
-            T_local_rhs(i) += -time_step / EquationData::c_T * 
+            T_local_rhs(i) += -time_step / EquationData::c_T *
                               T_fe_face_values.shape_value(i, q) *
                               QT_bd_values[q] * T_fe_face_values.JxW(q);
           }
@@ -535,8 +536,7 @@ void CoupledTH<dim>::assemble_T_system() {
         T_stiffness_matrix.add(T_local_dof_indices[i], T_local_dof_indices[j],
                                T_local_stiffness_matrix(i, j));
         T_convection_matrix.add(T_local_dof_indices[i], T_local_dof_indices[j],
-                               T_local_convection_matrix(i, j));
-        
+                                T_local_convection_matrix(i, j));
       }
       T_system_rhs(T_local_dof_indices[i]) += T_local_rhs(i);
     }
@@ -545,29 +545,25 @@ void CoupledTH<dim>::assemble_T_system() {
         time_step,
         T_stiffness_matrix);  // T_mass_matrix +
                               // theta*time_step*T_stiffness_matrix
-    T_system_matrix.add(
-        time_step,
-        T_convection_matrix);  
-                              
+    T_system_matrix.add(time_step, T_convection_matrix);
   }
 
-  //ADD DIRICHLET BOUNDARY
+  // ADD DIRICHLET BOUNDARY
   {
-    
-    for (int i = 0; i < EquationData::num_T_bnd_id; i++)
-    {
+
+    for (int i = 0; i < EquationData::num_T_bnd_id; i++) {
 
       T_boundary.set_time(time);
       T_boundary.set_boundary_id(*(EquationData::T_bnd_id + i));
       std::map<types::global_dof_index, double> T_bd_values;
-      VectorTools::interpolate_boundary_values(dof_handler, *(EquationData::T_bnd_id + i), T_boundary,
-                                           T_bd_values); //i表示边界的index
-      MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, T_solution,
-                                       T_system_rhs);
+      VectorTools::interpolate_boundary_values(
+          dof_handler, *(EquationData::T_bnd_id + i), T_boundary,
+          T_bd_values);  // i表示边界的index
+      MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix,
+                                         T_solution, T_system_rhs);
     }
   }
   timer.tock("assemble_T_system");
-  
 }
 
 template <int dim>
@@ -591,31 +587,30 @@ void CoupledTH<dim>::linear_solve_P() {
   timer.tock("linear_solve_P");
 }
 
-
-
 template <int dim>
 void CoupledTH<dim>::linear_solve_T() {
   cbgeo::Clock timer;
   timer.tick();
-  SolverControl solver_control(std::max<std::size_t>(
-      4000, T_system_rhs.size()/10),
+  SolverControl solver_control(
+      std::max<std::size_t>(4000, T_system_rhs.size() / 10),
       1e-8 * T_system_rhs.l2_norm());               // setting for solver
-  SolverGMRES<> solver(solver_control);                    // config solver
-  PreconditionJacobi<> preconditioner;                // precond
+  SolverGMRES<> solver(solver_control);             // config solver
+  PreconditionJacobi<> preconditioner;              // precond
   preconditioner.initialize(T_system_matrix, 1.0);  // initialize precond
   solver.solve(T_system_matrix, T_solution, T_system_rhs,
-           preconditioner);  // solve eq
-  
+               preconditioner);  // solve eq
+
   Vector<double> residual(dof_handler.n_dofs());
   T_system_matrix.vmult(residual, T_solution);
   residual -= T_system_rhs;
-  
-  std::cout << "  Iterations required for convergence:    "
-            << solver_control.last_step()<<"\n"
-            << "  Max norm of residual:      "
-            << residual.linfty_norm() << "\n";
 
-  // constraints.distribute(solution);  // make sure if the value is consistent at the constraint point
+  std::cout << "  Iterations required for convergence:    "
+            << solver_control.last_step() << "\n"
+            << "  Max norm of residual:      " << residual.linfty_norm()
+            << "\n";
+
+  // constraints.distribute(solution);  // make sure if the value is consistent
+  // at the constraint point
 
   timer.tock("linear_solve_T");
 }
@@ -624,7 +619,8 @@ void CoupledTH<dim>::linear_solve_T() {
 //
 // Neither is there anything new in generating graphical output:
 template <int dim>
-void CoupledTH<dim>::output_results(Vector<double>& solution, std::string var_name) const {
+void CoupledTH<dim>::output_results(Vector<double>& solution,
+                                    std::string var_name) const {
   DataOut<dim> data_out;
 
   data_out.attach_dof_handler(dof_handler);
@@ -632,8 +628,9 @@ void CoupledTH<dim>::output_results(Vector<double>& solution, std::string var_na
 
   data_out.build_patches();
 
-  const std::string filename = var_name +
-      "-solution-" + Utilities::int_to_string(timestep_number, 3) + ".vtk";
+  const std::string filename = var_name + "-solution-" +
+                               Utilities::int_to_string(timestep_number, 3) +
+                               ".vtk";
   std::ofstream output(filename.c_str());
   data_out.write_vtk(output);
 }
@@ -645,9 +642,8 @@ void CoupledTH<dim>::run() {
   VectorTools::interpolate(dof_handler,
                            EquationData::TemperatureInitialValues<dim>(),
                            old_T_solution);
-  VectorTools::interpolate(dof_handler, 
-                           EquationData::PressureInitialValues<dim>(), 
-                           old_P_solution);
+  VectorTools::interpolate(
+      dof_handler, EquationData::PressureInitialValues<dim>(), old_P_solution);
 
   do {
     std::cout << "\nTimestep " << timestep_number;
@@ -657,16 +653,15 @@ void CoupledTH<dim>::run() {
     linear_solve_P();
 
     old_P_solution = P_solution;
-    
+
     assemble_T_system();
 
     linear_solve_T();
 
     old_T_solution = T_solution;
-    
+
     output_results(T_solution, "T");
     output_results(P_solution, "P");
-
 
     time += time_step;
     ++timestep_number;
@@ -679,6 +674,6 @@ void CoupledTH<dim>::run() {
     // // matrix_out.write_gnuplot (out);
     // // system_matrix.print_formatted(out);
     // system_rhs.print(out);
-    
+
   } while (time <= period);
 }
