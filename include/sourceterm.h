@@ -15,7 +15,7 @@ namespace EquationData {
 template <int dim>
 class PressureSourceTerm : public Function<dim> {
  public:
-  PressureSourceTerm() : Function<dim>(), period(0.2) {}
+  PressureSourceTerm() : Function<dim>(), period_(0.2) {}
 
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;
@@ -23,7 +23,7 @@ class PressureSourceTerm : public Function<dim> {
   virtual void vector_value(const Point<dim>& p, Vector<double>& values) const;
 
  private:
-  const double period;
+  const double period_;
 };
 
 template <int dim>
@@ -53,7 +53,7 @@ void PressureSourceTerm<dim>::vector_value(const Point<dim>& p,
 template <int dim>
 class TemperatureSourceTerm : public Function<dim> {
  public:
-  TemperatureSourceTerm() : Function<dim>(), period(0.2) {}
+  TemperatureSourceTerm() : Function<dim>(), period_(0.2) {}
 
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;
@@ -62,7 +62,7 @@ class TemperatureSourceTerm : public Function<dim> {
   //                           Vector<double> &value) const;
 
  private:
-  const double period;
+  const double period_;
 };
 
 template <int dim>

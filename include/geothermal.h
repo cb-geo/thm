@@ -305,8 +305,8 @@ void CoupledTH<dim>::assemble_P_system() {
     for (unsigned int q = 0; q < P_n_q_points; ++q) {
 
       const auto P_quadrature_coord = P_fe_values.quadrature_point(q);
-      EquationData::perm = interpolate1d(
-          EquationData::perm_list, P_quadrature_coord[2], false);  // step-5
+      EquationData::g_perm = interpolate1d(
+          EquationData::g_perm_list, P_quadrature_coord[2], false);  // step-5
 
       for (unsigned int i = 0; i < P_dofs_per_cell; ++i) {
         const Tensor<1, dim> grad_phi_i_P = P_fe_values.shape_grad(i, q);
@@ -316,13 +316,13 @@ void CoupledTH<dim>::assemble_P_system() {
           const double phi_j_P = P_fe_values.shape_value(j, q);
           P_local_mass_matrix(i, j) += (phi_i_P * phi_j_P * P_fe_values.JxW(q));
           P_local_stiffness_matrix(i, j) +=
-              (EquationData::perm * EquationData::B_w * grad_phi_i_P *
+              (EquationData::g_perm * EquationData::g_B_w * grad_phi_i_P *
                grad_phi_j_P * P_fe_values.JxW(q));
         }
         P_local_rhs(i) += (time_step * phi_i_P * P_source_values[q] +
                            time_step * grad_phi_i_P * (Point<dim>(0, 0, 1)) *
-                               (-EquationData::B_w * EquationData::perm *
-                                EquationData::P_grad) +
+                               (-EquationData::g_B_w * EquationData::g_perm *
+                                EquationData::g_P_grad) +
                            phi_i_P * old_P_sol_values[q]) *
                           P_fe_values.JxW(q);
       }
@@ -342,7 +342,7 @@ void CoupledTH<dim>::assemble_P_system() {
 
         for (unsigned int q = 0; q < P_n_face_q_points; ++q) {
           for (unsigned int i = 0; i < P_dofs_per_cell; ++i) {
-            P_local_rhs(i) += -time_step * EquationData::B_w *
+            P_local_rhs(i) += -time_step * EquationData::g_B_w *
                               (P_fe_face_values.shape_value(i, q) *
                                QP_bd_values[q] * P_fe_face_values.JxW(q));
           }
@@ -371,13 +371,13 @@ void CoupledTH<dim>::assemble_P_system() {
   // // ADD DIRICLET BOUNDARY
   {
 
-    for (int i = 0; i < EquationData::num_P_bnd_id; i++) {
+    for (int i = 0; i < EquationData::g_num_P_bnd_id; i++) {
 
       P_boundary.set_time(time);
-      P_boundary.set_boundary_id(*(EquationData::P_bnd_id + i));
+      P_boundary.set_boundary_id(*(EquationData::g_P_bnd_id + i));
       std::map<types::global_dof_index, double> P_bd_values;
       VectorTools::interpolate_boundary_values(
-          dof_handler, *(EquationData::P_bnd_id + i), P_boundary,
+          dof_handler, *(EquationData::g_P_bnd_id + i), P_boundary,
           P_bd_values);  // i表示边界的index
       MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix,
                                          P_solution, P_system_rhs);
@@ -491,11 +491,11 @@ void CoupledTH<dim>::assemble_T_system() {
           const double phi_j_T = T_fe_values.shape_value(j, q);
           T_local_mass_matrix(i, j) += (phi_i_T * phi_j_T * T_fe_values.JxW(q));
           T_local_stiffness_matrix(i, j) +=
-              (EquationData::lam / EquationData::c_T * grad_phi_i_T *
+              (EquationData::g_lam / EquationData::g_c_T * grad_phi_i_T *
                grad_phi_j_T * T_fe_values.JxW(q));
           T_local_convection_matrix(i, j) +=
-              EquationData::c_w / EquationData::c_T * phi_i_T *
-              (-EquationData::perm * old_P_sol_grads[q] * grad_phi_j_T *
+              EquationData::g_c_w / EquationData::g_c_T * phi_i_T *
+              (-EquationData::g_perm * old_P_sol_grads[q] * grad_phi_j_T *
                T_fe_values.JxW(q));
         }
         // T_local_rhs(i) +=
@@ -520,7 +520,7 @@ void CoupledTH<dim>::assemble_T_system() {
                                QT_bd_values);
         for (unsigned int q = 0; q < T_n_face_q_points; ++q) {
           for (unsigned int i = 0; i < T_dofs_per_cell; ++i) {
-            T_local_rhs(i) += -time_step / EquationData::c_T *
+            T_local_rhs(i) += -time_step / EquationData::g_c_T *
                               T_fe_face_values.shape_value(i, q) *
                               QT_bd_values[q] * T_fe_face_values.JxW(q);
           }
@@ -551,13 +551,13 @@ void CoupledTH<dim>::assemble_T_system() {
   // ADD DIRICHLET BOUNDARY
   {
 
-    for (int i = 0; i < EquationData::num_T_bnd_id; i++) {
+    for (int i = 0; i < EquationData::g_num_T_bnd_id; i++) {
 
       T_boundary.set_time(time);
-      T_boundary.set_boundary_id(*(EquationData::T_bnd_id + i));
+      T_boundary.set_boundary_id(*(EquationData::g_T_bnd_id + i));
       std::map<types::global_dof_index, double> T_bd_values;
       VectorTools::interpolate_boundary_values(
-          dof_handler, *(EquationData::T_bnd_id + i), T_boundary,
+          dof_handler, *(EquationData::g_T_bnd_id + i), T_boundary,
           T_bd_values);  // i表示边界的index
       MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix,
                                          T_solution, T_system_rhs);

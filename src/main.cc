@@ -9,7 +9,7 @@
 
 int main() {
 
-  get_parameter("parameters.csv", EquationData::perm_list, 1);
+  get_parameter("parameters.csv", EquationData::g_perm_list, 1);
 
   try {
     using namespace dealii;
