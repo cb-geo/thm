@@ -89,9 +89,15 @@ class CoupledTH {
   double time;                   // t
   unsigned int timestep_number;  // n_t
 
-  const double theta = 0.3;
-  const double period = 1 * 3600 * 24;
-  const double time_step = period / 20;
+  const double theta = EquationData::g_theta;
+  const double period = EquationData::g_period;
+  const double time_step = EquationData::g_time_step;
+  const unsigned int P_max_iteration_number =
+      EquationData::g_P_max_iteration_number;
+  const unsigned int T_max_iteration_number =
+      EquationData::g_T_max_iteration_number;
+  const double P_tol_residual = EquationData::g_P_tol_residual;
+  const double T_tol_residual = EquationData::g_T_tol_residual;
 };
 
 template <int dim>
@@ -571,8 +577,8 @@ void CoupledTH<dim>::linear_solve_P() {
   cbgeo::Clock timer;
   timer.tick();
   SolverControl solver_control(
-      1000,
-      1e-8 * P_system_rhs.l2_norm());               // setting for cg
+      P_max_iteration_number,
+      P_tol_residual * P_system_rhs.l2_norm());     // setting for cg
   SolverCG<> cg(solver_control);                    // config cg
   PreconditionSSOR<> preconditioner;                // precond
   preconditioner.initialize(P_system_matrix, 1.0);  // initialize precond
@@ -592,8 +598,8 @@ void CoupledTH<dim>::linear_solve_T() {
   cbgeo::Clock timer;
   timer.tick();
   SolverControl solver_control(
-      std::max<std::size_t>(4000, T_system_rhs.size() / 10),
-      1e-8 * T_system_rhs.l2_norm());               // setting for solver
+      std::max<std::size_t>(T_max_iteration_number, T_system_rhs.size() / 10),
+      T_tol_residual * T_system_rhs.l2_norm());     // setting for solver
   SolverGMRES<> solver(solver_control);             // config solver
   PreconditionJacobi<> preconditioner;              // precond
   preconditioner.initialize(T_system_matrix, 1.0);  // initialize precond
