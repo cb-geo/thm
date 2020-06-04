@@ -113,7 +113,9 @@ CoupledTH<dim>::CoupledTH(const unsigned int degree)  // initialization
       dof_handler(triangulation),
 
       time(0.0),
-      timestep_number(0) {
+      timestep_number(0),
+      T_iteration_namber(0),
+      P_iteration_namber(0){
   if (EquationData::is_linspace) {
     period = EquationData::g_period;
     n_time_step = EquationData::g_n_time_step;
