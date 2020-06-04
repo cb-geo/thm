@@ -1,7 +1,7 @@
+#include "boundaryvalues.h"
 #include "clock.h"
 #include "externalfunc.h"
 #include "globalvariables.h"
-#include "boundaryvalues.h"
 #include "initialvalues.h"
 #include "sourceterm.h"
 
@@ -11,13 +11,13 @@ int main() {
   double seconds;
   get_parameter("inputfiles/parameters.csv", EquationData::g_perm_list, 1);
 
-  if(EquationData::time_unit =='d'){
-     seconds = 86400;
-  } else if(EquationData::time_unit =='h'){
-     seconds = 3600;
+  if (EquationData::time_unit == 'd') {
+    seconds = 86400;
+  } else if (EquationData::time_unit == 'h') {
+    seconds = 3600;
   }
-  for (unsigned int i =0; i < EquationData::g_time_sequence.size(); ++i){
-    EquationData::g_time_sequence[i]*= seconds;
+  for (unsigned int i = 0; i < EquationData::g_time_sequence.size(); ++i) {
+    EquationData::g_time_sequence[i] *= seconds;
   }
 
   try {
