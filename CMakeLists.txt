@@ -65,7 +65,10 @@ SET(thm_src
   ./src/main.cc
   ./src/get_parameter.cc
   ./src/interpolation1d.cc
+  ./src/linspace.cc
 )
+
+# aux_source_directory(./src/ thm_src)
 
 # Include directories
 include_directories(

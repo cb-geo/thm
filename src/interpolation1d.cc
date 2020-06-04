@@ -22,10 +22,10 @@ double interpolate1d(std::vector<std::vector<double>>& Data, double x,
       return yL + dydx * (x - xL);
       break;
     } else if ((x < xData[0]) && (x < xData[size - 1])) {
-      (xData[0] < xData[size - 1] ? yData[0] : yData[size - 1]);
+      return (xData[0] < xData[size - 1] ? yData[0] : yData[size - 1]);
       break;
     } else if ((x > xData[0]) && (x > xData[size - 1])) {
-      (xData[0] > xData[size - 1] ? yData[0] : yData[size - 1]);
+      return (xData[0] > xData[size - 1] ? yData[0] : yData[size - 1]);
       break;
     }
   }

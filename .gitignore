@@ -62,8 +62,8 @@ benchmarks/
 build/*
 *copy*
 *.geo*
-*.msh*
 *.db*
 *.nas*
 *.vscode/*
 grid-1.eps
+outputfiles/*
