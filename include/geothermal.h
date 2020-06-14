@@ -72,14 +72,9 @@ class CoupledTH {
 
   // ConstraintMatrix constraints;  // hanging node
 
-  SparsityPattern sparsity_pattern;          // sparsity
-  SparseMatrix<double> P_mass_matrix;        // M_P
-  SparseMatrix<double> T_mass_matrix;        // M_T
-  SparseMatrix<double> P_stiffness_matrix;   // K_P
-  SparseMatrix<double> T_stiffness_matrix;   // K_T
-  SparseMatrix<double> T_convection_matrix;  // C_T
-  SparseMatrix<double> P_system_matrix;      // M_P + K_P
-  SparseMatrix<double> T_system_matrix;      // M_T + K_T
+  SparsityPattern sparsity_pattern;      // sparsity
+  SparseMatrix<double> P_system_matrix;  // M_P + K_P
+  SparseMatrix<double> T_system_matrix;  // M_T + K_T
 
   Vector<double> P_solution;      // P solution at n
   Vector<double> T_solution;      // T solution at n
@@ -193,9 +188,6 @@ void CoupledTH<dim>::make_grid_and_dofs() {
   sparsity_pattern.copy_from(T_dsp);
 
   // forming system matrixes and initialize these matrixes
-  T_mass_matrix.reinit(sparsity_pattern);
-  T_convection_matrix.reinit(sparsity_pattern);
-  T_stiffness_matrix.reinit(sparsity_pattern);
   T_system_matrix.reinit(sparsity_pattern);
   T_system_rhs.reinit(dof_handler.n_dofs());
   T_solution.reinit(dof_handler.n_dofs());
@@ -208,8 +200,6 @@ void CoupledTH<dim>::make_grid_and_dofs() {
   sparsity_pattern.copy_from(P_dsp);
 
   // forming system matrixes and initialize these matrixes
-  P_mass_matrix.reinit(sparsity_pattern);
-  P_stiffness_matrix.reinit(sparsity_pattern);
   P_system_matrix.reinit(sparsity_pattern);
   P_system_rhs.reinit(dof_handler.n_dofs());
   P_solution.reinit(dof_handler.n_dofs());
@@ -230,9 +220,6 @@ void CoupledTH<dim>::assemble_P_system() {
   timer.tick();
 
   // reset matreix to zero
-  P_stiffness_matrix = 0;
-  P_mass_matrix = 0;
-  P_stiffness_matrix = 0;
   P_system_matrix = 0;
   P_system_rhs = 0;
   P_solution = 0;
@@ -340,8 +327,8 @@ void CoupledTH<dim>::assemble_P_system() {
           const double phi_j_P = P_fe_values.shape_value(j, q);
           P_local_mass_matrix(i, j) += (phi_i_P * phi_j_P * P_fe_values.JxW(q));
           P_local_stiffness_matrix(i, j) +=
-              (EquationData::g_perm * EquationData::g_B_w * grad_phi_i_P *
-               grad_phi_j_P * P_fe_values.JxW(q));
+              time_step * (EquationData::g_perm * EquationData::g_B_w *
+                           grad_phi_i_P * grad_phi_j_P * P_fe_values.JxW(q));
         }
         P_local_rhs(i) += (time_step * phi_i_P * P_source_values[q] +
                            time_step * grad_phi_i_P * (Point<dim>(0, 0, 1)) *
@@ -389,17 +376,13 @@ void CoupledTH<dim>::assemble_P_system() {
 
     for (unsigned int i = 0; i < P_dofs_per_cell; ++i) {
       for (unsigned int j = 0; j < P_dofs_per_cell; ++j) {
-        P_mass_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
-                          P_local_mass_matrix(i, j));
-        P_stiffness_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
-                               P_local_stiffness_matrix(i, j));
+        P_system_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
+                            P_local_mass_matrix(i, j));
+        P_system_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
+                            P_local_stiffness_matrix(i, j));
       }
       P_system_rhs(P_local_dof_indices[i]) += P_local_rhs(i);
     }
-    P_system_matrix.copy_from(P_mass_matrix);
-    P_system_matrix.add(time_step,
-                        P_stiffness_matrix);  // P_mass_matrix +
-                                              // time_step*P_stiffness_matrix
   }
 
   // // ADD DIRICLET BOUNDARY
@@ -425,9 +408,6 @@ void CoupledTH<dim>::assemble_T_system() {
   cbgeo::Clock timer;
   timer.tick();
   // reset matreix to zero
-  T_stiffness_matrix = 0;
-  T_mass_matrix = 0;
-  T_convection_matrix = 0;
   T_system_matrix = 0;
   T_system_rhs = 0;
   T_solution = 0;
@@ -529,10 +509,10 @@ void CoupledTH<dim>::assemble_T_system() {
           const double phi_j_T = T_fe_values.shape_value(j, q);
           T_local_mass_matrix(i, j) += (phi_i_T * phi_j_T * T_fe_values.JxW(q));
           T_local_stiffness_matrix(i, j) +=
-              (EquationData::g_lam / EquationData::g_c_T * grad_phi_i_T *
-               grad_phi_j_T * T_fe_values.JxW(q));
+              time_step * (EquationData::g_lam / EquationData::g_c_T *
+                           grad_phi_i_T * grad_phi_j_T * T_fe_values.JxW(q));
           T_local_convection_matrix(i, j) +=
-              EquationData::g_c_w / EquationData::g_c_T * phi_i_T *
+              time_step * EquationData::g_c_w / EquationData::g_c_T * phi_i_T *
               (-EquationData::g_perm *
                (old_P_sol_grads[q] +
                 (Point<dim>(0, 0, 1)) * EquationData::g_P_grad) *
@@ -580,20 +560,17 @@ void CoupledTH<dim>::assemble_T_system() {
     cell->get_dof_indices(T_local_dof_indices);
     for (unsigned int i = 0; i < T_dofs_per_cell; ++i) {
       for (unsigned int j = 0; j < T_dofs_per_cell; ++j) {
-        T_mass_matrix.add(T_local_dof_indices[i], T_local_dof_indices[j],
-                          T_local_mass_matrix(i, j));
-        T_stiffness_matrix.add(T_local_dof_indices[i], T_local_dof_indices[j],
-                               T_local_stiffness_matrix(i, j));
-        T_convection_matrix.add(T_local_dof_indices[i], T_local_dof_indices[j],
-                                T_local_convection_matrix(i, j));
+        T_system_matrix.add(T_local_dof_indices[i], T_local_dof_indices[j],
+                            T_local_mass_matrix(i, j));  // sys_mass_matrix
+        T_system_matrix.add(
+            T_local_dof_indices[i], T_local_dof_indices[j],
+            T_local_stiffness_matrix(i, j));  // sys_stiff_matrix
+        T_system_matrix.add(
+            T_local_dof_indices[i], T_local_dof_indices[j],
+            T_local_convection_matrix(i, j));  // sys_convect_matrix
       }
       T_system_rhs(T_local_dof_indices[i]) += T_local_rhs(i);
     }
-    T_system_matrix.copy_from(T_mass_matrix);
-    T_system_matrix.add(time_step,
-                        T_stiffness_matrix);  // T_mass_matrix +
-                                              // time_step*T_stiffness_matrix
-    T_system_matrix.add(time_step, T_convection_matrix);
   }
 
   // ADD DIRICHLET BOUNDARY
