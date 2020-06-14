@@ -381,8 +381,8 @@ void CoupledTH<dim>::assemble_P_system() {
             P_local_mass_matrix(i, j) +=
                 (phi_i_P * phi_j_P * P_fe_values.JxW(q));
             P_local_stiffness_matrix(i, j) +=
-                (time_step * EquationData::g_perm * EquationData::g_B_w * grad_phi_i_P *
-                 grad_phi_j_P * P_fe_values.JxW(q));
+                (time_step * EquationData::g_perm * EquationData::g_B_w *
+                 grad_phi_i_P * grad_phi_j_P * P_fe_values.JxW(q));
           }
           P_local_rhs(i) += (time_step * phi_i_P * P_source_values[q] +
                              time_step * grad_phi_i_P * (Point<dim>(0, 0, 1)) *
@@ -432,16 +432,18 @@ void CoupledTH<dim>::assemble_P_system() {
       for (unsigned int i = 0; i < P_dofs_per_cell; ++i) {
         for (unsigned int j = 0; j < P_dofs_per_cell; ++j) {
           P_system_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
-                            P_local_mass_matrix(i, j)); // mass matrix
+                              P_local_mass_matrix(i, j));  // mass matrix
           P_system_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
-                                 P_local_stiffness_matrix(i, j));// stiff matrix
+                              P_local_stiffness_matrix(i, j));  // stiff matrix
         }
         P_system_rhs(P_local_dof_indices[i]) += P_local_rhs(i);
       }
       // P_system_matrix.add((PetscScalar)(1), P_mass_matrix);
       // P_system_matrix.add((PetscScalar)(time_step),
-      //                     P_stiffness_matrix);  // P_mass_matrixP_mass_matrix +
-      //                                           // time_step*P_stiffness_matrix
+      //                     P_stiffness_matrix);  // P_mass_matrixP_mass_matrix
+      //                     +
+      //                                           //
+      //                                           time_step*P_stiffness_matrix
     }
   }
 
@@ -578,10 +580,11 @@ void CoupledTH<dim>::assemble_T_system() {
             T_local_mass_matrix(i, j) +=
                 (phi_i_T * phi_j_T * T_fe_values.JxW(q));
             T_local_stiffness_matrix(i, j) +=
-                time_step * (EquationData::g_lam / EquationData::g_c_T * grad_phi_i_T *
-                 grad_phi_j_T * T_fe_values.JxW(q));
+                time_step * (EquationData::g_lam / EquationData::g_c_T *
+                             grad_phi_i_T * grad_phi_j_T * T_fe_values.JxW(q));
             T_local_convection_matrix(i, j) +=
-                time_step * EquationData::g_c_w / EquationData::g_c_T * phi_i_T *
+                time_step * EquationData::g_c_w / EquationData::g_c_T *
+                phi_i_T *
                 (-EquationData::g_perm *
                  (old_P_sol_grads[q] +
                   (Point<dim>(0, 0, 1)) * EquationData::g_P_grad) *
@@ -631,19 +634,21 @@ void CoupledTH<dim>::assemble_T_system() {
       for (unsigned int i = 0; i < T_dofs_per_cell; ++i) {
         for (unsigned int j = 0; j < T_dofs_per_cell; ++j) {
           T_system_matrix.add(T_local_dof_indices[i], T_local_dof_indices[j],
-                            T_local_mass_matrix(i, j)); // mass_matrix
-          T_system_matrix.add(T_local_dof_indices[i], T_local_dof_indices[j],
-                                 T_local_stiffness_matrix(i, j)); // striffness_matrix
-          T_system_matrix.add(T_local_dof_indices[i],
-                                  T_local_dof_indices[j],
-                                  T_local_convection_matrix(i, j));// convection_matrix
+                              T_local_mass_matrix(i, j));  // mass_matrix
+          T_system_matrix.add(
+              T_local_dof_indices[i], T_local_dof_indices[j],
+              T_local_stiffness_matrix(i, j));  // striffness_matrix
+          T_system_matrix.add(
+              T_local_dof_indices[i], T_local_dof_indices[j],
+              T_local_convection_matrix(i, j));  // convection_matrix
         }
         T_system_rhs(T_local_dof_indices[i]) += T_local_rhs(i);
       }
       // T_system_matrix.add((PetscScalar)(1), T_mass_matrix);
       // T_system_matrix.add((PetscScalar)(time_step),
       //                     T_stiffness_matrix);  // T_mass_matrix +
-      //                                           // time_step*T_stiffness_matrix
+      //                                           //
+      //                                           time_step*T_stiffness_matrix
       // T_system_matrix.add((PetscScalar)(time_step), T_convection_matrix);
     }
   }
