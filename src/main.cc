@@ -7,7 +7,7 @@
 
 #include "geothermal.h"
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   double seconds;
   get_parameter("inputfiles/parameters.csv", EquationData::g_perm_list, 1);
 
