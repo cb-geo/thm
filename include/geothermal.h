@@ -93,12 +93,6 @@ class CoupledTH {
   FE_Q<dim> T_fe;  // element type
 
   // ConstraintMatrix constraints;  // hanging node
-
-  PETScWrappers::MPI::SparseMatrix P_mass_matrix;        // M_P
-  PETScWrappers::MPI::SparseMatrix T_mass_matrix;        // M_T
-  PETScWrappers::MPI::SparseMatrix P_stiffness_matrix;   // K_P
-  PETScWrappers::MPI::SparseMatrix T_stiffness_matrix;   // K_T
-  PETScWrappers::MPI::SparseMatrix T_convection_matrix;  // C_T
   PETScWrappers::MPI::SparseMatrix P_system_matrix;      // M_P + K_P
   PETScWrappers::MPI::SparseMatrix T_system_matrix;      // M_T + K_T
 
@@ -232,13 +226,7 @@ void CoupledTH<dim>::make_grid_and_dofs() {
   DynamicSparsityPattern T_dsp(dof_handler.n_dofs());  // sparsity
   DoFTools::make_sparsity_pattern(dof_handler, T_dsp);
 
-  // forming system matrixes and initialize these matrixes
-  T_mass_matrix.reinit(locally_owned_dofs, locally_owned_dofs, T_dsp,
-                       mpi_communicator);
-  T_convection_matrix.reinit(locally_owned_dofs, locally_owned_dofs, T_dsp,
-                             mpi_communicator);
-  T_stiffness_matrix.reinit(locally_owned_dofs, locally_owned_dofs, T_dsp,
-                            mpi_communicator);
+  // forming system matrixes and initialize these matrixesy
   T_system_matrix.reinit(locally_owned_dofs, locally_owned_dofs, T_dsp,
                          mpi_communicator);
   T_system_rhs.reinit(locally_owned_dofs, mpi_communicator);
@@ -250,10 +238,6 @@ void CoupledTH<dim>::make_grid_and_dofs() {
   DoFTools::make_sparsity_pattern(dof_handler, P_dsp);
 
   // forming system matrixes and initialize these matrixes
-  P_mass_matrix.reinit(locally_owned_dofs, locally_owned_dofs, P_dsp,
-                       mpi_communicator);
-  P_stiffness_matrix.reinit(locally_owned_dofs, locally_owned_dofs, P_dsp,
-                            mpi_communicator);
   P_system_matrix.reinit(locally_owned_dofs, locally_owned_dofs, P_dsp,
                          mpi_communicator);
   P_system_rhs.reinit(locally_owned_dofs, mpi_communicator);
@@ -269,9 +253,6 @@ void CoupledTH<dim>::assemble_P_system() {
   timer.tick();
 
   // reset matreix to zero
-  P_stiffness_matrix = 0;
-  P_mass_matrix = 0;
-  P_stiffness_matrix = 0;
   P_system_matrix = 0;
   P_system_rhs = 0;
   P_solution = 0;
@@ -432,18 +413,13 @@ void CoupledTH<dim>::assemble_P_system() {
       for (unsigned int i = 0; i < P_dofs_per_cell; ++i) {
         for (unsigned int j = 0; j < P_dofs_per_cell; ++j) {
           P_system_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
-                              P_local_mass_matrix(i, j));  // mass matrix
+                              P_local_mass_matrix(i, j));  //sys_mass matrix
           P_system_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
-                              P_local_stiffness_matrix(i, j));  // stiff matrix
+                              P_local_stiffness_matrix(i, j));  // sys_stiff matrix
         }
         P_system_rhs(P_local_dof_indices[i]) += P_local_rhs(i);
       }
-      // P_system_matrix.add((PetscScalar)(1), P_mass_matrix);
-      // P_system_matrix.add((PetscScalar)(time_step),
-      //                     P_stiffness_matrix);  // P_mass_matrixP_mass_matrix
-      //                     +
-      //                                           //
-      //                                           time_step*P_stiffness_matrix
+
     }
   }
 
@@ -474,9 +450,6 @@ void CoupledTH<dim>::assemble_T_system() {
   cbgeo::Clock timer;
   timer.tick();
   // reset matreix to zero
-  T_stiffness_matrix = 0;
-  T_mass_matrix = 0;
-  T_convection_matrix = 0;
   T_system_matrix = 0;
   T_system_rhs = 0;
   T_solution = 0;
@@ -644,12 +617,6 @@ void CoupledTH<dim>::assemble_T_system() {
         }
         T_system_rhs(T_local_dof_indices[i]) += T_local_rhs(i);
       }
-      // T_system_matrix.add((PetscScalar)(1), T_mass_matrix);
-      // T_system_matrix.add((PetscScalar)(time_step),
-      //                     T_stiffness_matrix);  // T_mass_matrix +
-      //                                           //
-      //                                           time_step*T_stiffness_matrix
-      // T_system_matrix.add((PetscScalar)(time_step), T_convection_matrix);
     }
   }
 
@@ -669,7 +636,7 @@ void CoupledTH<dim>::assemble_T_system() {
           dof_handler, *(EquationData::g_T_bnd_id + bd_i), T_boundary,
           T_bd_values);  // i表示边界的index
       MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix,
-                                         T_solution, T_system_rhs);
+                                         T_solution, T_system_rhs, false);
     }
   }
 
@@ -681,18 +648,14 @@ void CoupledTH<dim>::linear_solve_P() {
   cbgeo::Clock timer;
   timer.tick();
   SolverControl solver_control(
-      n_P_max_iteration,
+      P_solution.size(),
       P_tol_residual * P_system_rhs.l2_norm());  // setting for cg
   PETScWrappers::SolverCG cg(solver_control, mpi_communicator);  // config cg
-  PETScWrappers::PreconditionSSOR preconditioner;                // precond
-  preconditioner.initialize(P_system_matrix, 1.0);  // initialize precond
+  PETScWrappers::PreconditionBlockJacobi preconditioner(P_system_matrix);                // precond
   cg.solve(P_system_matrix, P_solution, P_system_rhs,
            preconditioner);  // solve eq
-
   P_iteration_namber = solver_control.last_step();
-  // constraints.distribute(solution);  // make sure if the value is
-  // consistent at
-  // the constraint point
+
 
   pcout << "\nCG iterations: " << P_iteration_namber << std::endl;
 
@@ -704,22 +667,18 @@ void CoupledTH<dim>::linear_solve_T() {
   cbgeo::Clock timer;
   timer.tick();
   SolverControl solver_control(
-      std::max<std::size_t>(n_T_max_iteration, T_system_rhs.size() / 10),
+     std::max<std::size_t>(n_T_max_iteration, T_system_rhs.size() / 10),
       T_tol_residual * T_system_rhs.l2_norm());       // setting for solver
-  PETScWrappers::SolverGMRES solver(solver_control);  // config solver
+  PETScWrappers::SolverGMRES solver(solver_control, mpi_communicator);  // config solver
   PETScWrappers::PreconditionJacobi preconditioner(T_system_matrix);  // precond
   // preconditioner.initialize(T_system_matrix, 1.0);      // initialize precond
   solver.solve(T_system_matrix, T_solution, T_system_rhs,
                preconditioner);  // solve eq
 
-  PETScWrappers::MPI::Vector residual;
-  T_system_matrix.vmult(residual, T_solution);
-  residual -= T_system_rhs;
   T_iteration_namber = solver_control.last_step();
 
   pcout << "  Iterations required for convergence:    " << T_iteration_namber
-        << "\n"
-        << "  Max norm of residual:      " << residual.linfty_norm() << "\n";
+        << "\n";
 
   // constraints.distribute(solution);  // make sure if the value is
   // consistent at the constraint point
