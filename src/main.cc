@@ -7,7 +7,7 @@
 
 #include "geothermal.h"
 
-int main() {
+int main(int argc, char **argv) {
   double seconds;
   get_parameter("inputfiles/parameters.csv", EquationData::g_perm_list, 1);
 
@@ -22,6 +22,9 @@ int main() {
 
   try {
     using namespace dealii;
+
+    Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
+
     CoupledTH<3> coupled_TH_solver(1);
     coupled_TH_solver.run();
   } catch (std::exception& exc) {
