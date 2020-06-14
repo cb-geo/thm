@@ -93,8 +93,8 @@ class CoupledTH {
   FE_Q<dim> T_fe;  // element type
 
   // ConstraintMatrix constraints;  // hanging node
-  PETScWrappers::MPI::SparseMatrix P_system_matrix;      // M_P + K_P
-  PETScWrappers::MPI::SparseMatrix T_system_matrix;      // M_T + K_T
+  PETScWrappers::MPI::SparseMatrix P_system_matrix;  // M_P + K_P
+  PETScWrappers::MPI::SparseMatrix T_system_matrix;  // M_T + K_T
 
   PETScWrappers::MPI::Vector P_solution;      // P solution at n
   PETScWrappers::MPI::Vector T_solution;      // T solution at n
@@ -413,13 +413,13 @@ void CoupledTH<dim>::assemble_P_system() {
       for (unsigned int i = 0; i < P_dofs_per_cell; ++i) {
         for (unsigned int j = 0; j < P_dofs_per_cell; ++j) {
           P_system_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
-                              P_local_mass_matrix(i, j));  //sys_mass matrix
-          P_system_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
-                              P_local_stiffness_matrix(i, j));  // sys_stiff matrix
+                              P_local_mass_matrix(i, j));  // sys_mass matrix
+          P_system_matrix.add(
+              P_local_dof_indices[i], P_local_dof_indices[j],
+              P_local_stiffness_matrix(i, j));  // sys_stiff matrix
         }
         P_system_rhs(P_local_dof_indices[i]) += P_local_rhs(i);
       }
-
     }
   }
 
@@ -651,11 +651,11 @@ void CoupledTH<dim>::linear_solve_P() {
       P_solution.size(),
       P_tol_residual * P_system_rhs.l2_norm());  // setting for cg
   PETScWrappers::SolverCG cg(solver_control, mpi_communicator);  // config cg
-  PETScWrappers::PreconditionBlockJacobi preconditioner(P_system_matrix);                // precond
+  PETScWrappers::PreconditionBlockJacobi preconditioner(
+      P_system_matrix);  // precond
   cg.solve(P_system_matrix, P_solution, P_system_rhs,
            preconditioner);  // solve eq
   P_iteration_namber = solver_control.last_step();
-
 
   pcout << "\nCG iterations: " << P_iteration_namber << std::endl;
 
@@ -667,9 +667,10 @@ void CoupledTH<dim>::linear_solve_T() {
   cbgeo::Clock timer;
   timer.tick();
   SolverControl solver_control(
-     std::max<std::size_t>(n_T_max_iteration, T_system_rhs.size() / 10),
-      T_tol_residual * T_system_rhs.l2_norm());       // setting for solver
-  PETScWrappers::SolverGMRES solver(solver_control, mpi_communicator);  // config solver
+      std::max<std::size_t>(n_T_max_iteration, T_system_rhs.size() / 10),
+      T_tol_residual * T_system_rhs.l2_norm());  // setting for solver
+  PETScWrappers::SolverGMRES solver(solver_control,
+                                    mpi_communicator);  // config solver
   PETScWrappers::PreconditionJacobi preconditioner(T_system_matrix);  // precond
   // preconditioner.initialize(T_system_matrix, 1.0);      // initialize precond
   solver.solve(T_system_matrix, T_solution, T_system_rhs,
@@ -738,6 +739,15 @@ void CoupledTH<dim>::run() {
   double theta;
 
   make_grid_and_dofs();
+
+  pcout << "   Number of degrees of freedom: " << dof_handler.n_dofs()
+        << " (by partition:";
+  for (unsigned int process = 0; process < n_mpi_processes; ++process) {
+    pcout << (process == 0 ? ' ' : '+')
+          << (DoFTools::count_dofs_with_subdomain_association(dof_handler,
+                                                              process));
+  }
+  pcout << ")" << std::endl;
 
   VectorTools::interpolate(dof_handler,
                            EquationData::TemperatureInitialValues<dim>(),
