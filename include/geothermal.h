@@ -126,7 +126,8 @@ CoupledTH<dim>::CoupledTH(const unsigned int degree)  // initialization
     : mpi_communicator(MPI_COMM_WORLD),
       n_mpi_processes(Utilities::MPI::n_mpi_processes(mpi_communicator)),
       this_mpi_process(Utilities::MPI::this_mpi_process(mpi_communicator)),
-      pcout(std::cout, (this_mpi_process == 0)),
+      pcout(std::cout,
+            (this_mpi_process == 0)),  // output the results at process 0
       dof_handler(triangulation),
       T_degree(degree),
       P_degree(degree),
@@ -154,42 +155,6 @@ template <int dim>
 CoupledTH<dim>::~CoupledTH() {
   dof_handler.clear();
 }
-
-// // CHECK THE GRID INPUT
-// template <int dim>
-// void print_mesh_info(const Triangulation<dim>& triangulation,
-//                      const std::string& filename) {
-//   std::cout << "Mesh info:" << std::endl
-//             << " dimension: " << dim << std::endl
-//             << " no. of cells: " << triangulation.n_active_cells() <<
-//             std::endl;
-//   {
-//     std::map<unsigned int, unsigned int> boundary_count;
-//     typename Triangulation<dim>::active_cell_iterator
-//         cell = triangulation.begin_active(),
-//         endc = triangulation.end();
-//     for (; cell != endc; ++cell) {
-//       for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell;
-//            ++face) {
-//         if (cell->face(face)->at_boundary())
-//           boundary_count[cell->face(face)->boundary_id()]++;
-//       }
-//     }
-
-//     std::cout << " boundary indicators: ";
-//     for (std::map<unsigned int, unsigned int>::iterator it =
-//              boundary_count.begin();
-//          it != boundary_count.end(); ++it) {
-//       std::cout << it->first << "(" << it->second << " times) ";
-//     }
-//     std::cout << std::endl;
-//   }
-
-//   std::ofstream out(filename.c_str());
-//   GridOut grid_out;
-//   grid_out.write_eps(triangulation, out);
-//   std::cout << " written to " << filename << std::endl << std::endl;
-// }
 
 template <int dim>
 void CoupledTH<dim>::make_grid_and_dofs() {
@@ -326,7 +291,9 @@ void CoupledTH<dim>::assemble_P_system() {
                                                      dof_handler.begin_active(),
                                                  endc = dof_handler.end();
   for (; cell != endc; ++cell) {
-    if (cell->subdomain_id() == this_mpi_process) {
+    if (cell->subdomain_id() ==
+        this_mpi_process) {  // only assemble the system on cells that acturally
+                             // belong to this MPI process
       // initialization
       P_local_mass_matrix = 0;
       P_local_stiffness_matrix = 0;
@@ -423,7 +390,13 @@ void CoupledTH<dim>::assemble_P_system() {
     }
   }
 
-  // compress matrix
+  // compress matrix his means that each process sends the additions that were
+  // made to those entries of the matrix and vector that the process did not own
+  // itself to the process that owns them.fter receiving these additions from
+  // other processes, each process then adds them to the values it already has.
+  // These additions are combining the integral contributions of shape functions
+  // living on several cells just as in a serial computation, with the
+  // difference that the cells are assigned to different processes.
   P_system_matrix.compress(VectorOperation::add);
   P_system_rhs.compress(VectorOperation::add);
 
@@ -438,8 +411,16 @@ void CoupledTH<dim>::assemble_P_system() {
       VectorTools::interpolate_boundary_values(
           dof_handler, *(EquationData::g_P_bnd_id + bd_i), P_boundary,
           P_bd_values);  // i表示边界的index
-      MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix,
-                                         P_solution, P_system_rhs, false);
+      MatrixTools::apply_boundary_values(
+          P_bd_values, P_system_matrix, P_solution, P_system_rhs,
+          false);  // The reason why we may not want to make the matrix
+                   // symmetric is because this would require us to write into
+                   // column entries that actually reside on other processes,
+                   // i.e., it involves communicating data. This is always
+                   // expensive. Experience tells us that CG also works (and
+                   // works almost as well) if we don't remove the columns
+                   // associated with boundary nodes, which can be explained by
+                   // the special structure of this particular non-symmetry.
     }
   }
   timer.tock("assemble_P_system");
@@ -652,7 +633,13 @@ void CoupledTH<dim>::linear_solve_P() {
       P_tol_residual * P_system_rhs.l2_norm());  // setting for cg
   PETScWrappers::SolverCG cg(solver_control, mpi_communicator);  // config cg
   PETScWrappers::PreconditionBlockJacobi preconditioner(
-      P_system_matrix);  // precond
+      P_system_matrix);  // use a block Jacobi preconditioner which works by
+                         // computing an incomplete LU decomposition on each
+                         // diagonal block of the matrix. (In other words, each
+                         // MPI process computes an ILU from the rows it stores
+                         // by throwing away columns that correspond to row
+                         // indices not stored locally; this yields a square
+                         // matrix block from which we can compute an ILU.
   cg.solve(P_system_matrix, P_solution, P_system_rhs,
            preconditioner);  // solve eq
   P_iteration_namber = solver_control.last_step();
