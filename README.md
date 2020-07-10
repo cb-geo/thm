@@ -37,6 +37,9 @@ Please refer to [CB-Geo thm Documentation](https://cb-geo.github.io/thm-doc) for
 export CC=icc
 export CXX=icpc
 
+# Load impi_largemen
+module load impi-largemem
+
 # Compile PETSc 3.13
 wget http://ftp.mcs.anl.gov/pub/petsc/release-snapshots/petsc-3.13.3.tar.gz 
 tar -xvzf petsc-3.13.3.tar.gz
