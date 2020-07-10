@@ -51,7 +51,7 @@ make PETSC_DIR=$HOME/petsc-3.13.3 PETSC_ARCH=clx check -j4
 module load boost
 
 # Clone and compile dealii
-git clone https //github.com/dealii/dealii --depth=1 dealii-src
+git clone https://github.com/dealii/dealii --depth=1 dealii-src
 cd dealii-src/ && mkdir build &&  cd build
 cmake -DCMAKE_INSTALL_PREFIX=$HOME/dealii -DPETSC_DIR=$PETSC_DIR -DPETSC_ARCH=clx -DDEAL_II_WITH_PETSC=On -DDEAL_II_WITH_MPI=On ..
 make install -j4
