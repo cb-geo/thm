@@ -118,3 +118,6 @@ showq -u
 # If want to cancel the squeue
 
 scancel <jobid>
+
+# to see the data folder
+cd $SCRATCH
