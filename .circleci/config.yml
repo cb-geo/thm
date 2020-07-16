@@ -3,7 +3,7 @@ jobs:
   build:
     working_directory: /home/cbgeo/research/mpm
     docker:
-      - image: quay.io/cbgeo/mpm
+      - image: quay.io/cbgeo/thm
     steps:
       - checkout
       # GCC-8
@@ -17,7 +17,7 @@ jobs:
             export MODULEPATH=$MODULEPATH:/usr/share/modulefiles
             module load mpi/openmpi-x86_64
             export CXX_COMPILER=mpicxx
-            cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=mpicxx -DCMAKE_EXPORT_COMPILE_COMMANDS=On ..
+            cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=mpicxx -DCMAKE_EXPORT_COMPILE_COMMANDS=On -DDEAL_II_DIR=/home/cbgeo/research/dealii/ ..
             make -j2
             ctest -VV
       # Clang-6.0
@@ -27,7 +27,7 @@ jobs:
             mkdir -p build
             [ "$(ls -A build)" ] && rm -rf build/*
             cd build
-            scan-build cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_EXPORT_COMPILE_COMMANDS=On ..
+            scan-build cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_EXPORT_COMPILE_COMMANDS=On -DDEAL_II_DIR=/home/cbgeo/research/dealii/ ..
             scan-build make -j2 
             ctest -VV
       # cppcheck
@@ -40,17 +40,4 @@ jobs:
       - run:
           name: clang-format
           command: |
-            python3 ./clang-tools/run-clang-format.py -r include/* src/* tests/*
-      # codecoverage
-      - run:
-          name: codecov.io
-          command: |
-            mkdir -p build
-            [ "$(ls -A build)" ] && rm -rf build/*
-            cd build
-            cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++ -DCMAKE_EXPORT_COMPILE_COMMANDS=On -DENABLE_COVERAGE=On ..
-            make mpmtest_coverage -j2
-            ./mpmtest_coverage
-            make gcov -j2  --ignore-errors
-            make lcov
-            bash <(curl -s https://codecov.io/bash) -X gcov
+            python3 ./clang-tools/run-clang-format.py -r include/* src/*

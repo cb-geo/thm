@@ -59,3 +59,11 @@ configure.scan
 *missing
 *stamp-h1
 benchmarks/
+build/*
+*copy*
+*.geo*
+*.db*
+*.nas*
+*.vscode/*
+grid-1.eps
+outputfiles/*
