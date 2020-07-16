@@ -47,13 +47,22 @@ export PETSC_DIR=$HOME/petsc-3.13.3
 make PETSC_DIR=$HOME/petsc-3.13.3 PETSC_ARCH=clx all -j4
 make PETSC_DIR=$HOME/petsc-3.13.3 PETSC_ARCH=clx check -j4
 
+# METIS
+cd $HOME
+wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-5.1.0.tar.gz && \
+    tar -xf metis-5.1.0.tar.gz && \
+    cd metis-5.1.0/ && \
+    make config shared=1 cc=icc cxx=icpc prefix=$HOME/metis && \
+    make install -j4 && cd ..
+
 # Load module boost
 module load boost
 
 # Clone and compile dealii
+cd $HOME
 git clone https //github.com/dealii/dealii --depth=1 dealii-src
 cd dealii-src/ && mkdir build &&  cd build
-cmake -DCMAKE_INSTALL_PREFIX=$HOME/dealii -DPETSC_DIR=$PETSC_DIR -DPETSC_ARCH=clx -DDEAL_II_WITH_PETSC=On -DDEAL_II_WITH_MPI=On ..
+cmake -DCMAKE_INSTALL_PREFIX=$HOME/dealii -DPETSC_DIR=$PETSC_DIR -DPETSC_ARCH=clx -DDEAL_II_WITH_PETSC=On  -DDEAL_II_WITH_METIS=On -DMETIS_DIR=$HOME/metis/ -DDEAL_II_WITH_MPI=On ..
 make install -j4
 
 
