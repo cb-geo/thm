@@ -128,5 +128,10 @@ showq -u
 
 scancel <jobid>
 
+# if want to see the utilization of computer
+wwall -j <jobid>
+# to see the path of scratch
+echo $SCRATCH
+
 # to see the data folder
 cd $SCRATCH
