@@ -50,7 +50,7 @@ tar -xvzf petsc-3.13.3.tar.gz
 cd petsc-3.13.3/
 export PETSC_ARCH=clx
 export PETSC_DIR=$HOME/petsc-3.13.3
-./config/configure.py --with-shared=1 --with-x=0 --with-mpi=1 --with-debugging=0
+./config/configure.py --with-shared=1 --with-x=0 --with-mpi=1 --with-debugging=0 --with-blas-lapack-dir=$TACC_MKL_LIB -COPTFLAGS=O2 -CXXOPTFLAGS=O2 -FOPTFLAGS=O2
 make PETSC_DIR=$HOME/petsc-3.13.3 PETSC_ARCH=clx all -j4
 make PETSC_DIR=$HOME/petsc-3.13.3 PETSC_ARCH=clx check -j4
 
