@@ -94,4 +94,12 @@ const unsigned int n_g_T_max_iteration = 4000;
 const double g_P_tol_residual = 1e-8;
 const double g_T_tol_residual = 1e-8;
 
+//dimention of the input data file (parameters_for_interpolation.txt in inputfiles is used in the example)
+const int dimension=3;
+//dimension in x, y and z directions
+std::string file_name_interpolation="inputfiles/parameters_for_interpolation.txt";
+const int dimension_x=3;
+const int dimension_y=3;
+const int dimension_z=3;
+
 }  // namespace EquationData
