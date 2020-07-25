@@ -60,7 +60,6 @@
 #include <deal.II/numerics/solution_transfer.h>
 #include <deal.II/numerics/vector_tools.h>
 
-//edit by Yuan 07/22/2020
 #include "interpolation.h"
 
 using namespace dealii;
