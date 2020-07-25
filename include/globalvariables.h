@@ -98,8 +98,9 @@ const double g_T_tol_residual = 1e-8;
 const int dimension=3;
 //dimension in x, y and z directions
 std::string file_name_interpolation="inputfiles/parameters_for_interpolation.txt";
-const int dimension_x=3;
-const int dimension_y=3;
-const int dimension_z=3;
+// number of sample point in x directin, y direction and z direction
+const int dimension_x=2;
+const int dimension_y=2;
+const int dimension_z=7;
 
 }  // namespace EquationData
