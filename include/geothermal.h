@@ -347,10 +347,6 @@ void CoupledTH<dim>::assemble_P_system() {
                  (time_step * EquationData::g_perm * EquationData::g_B_w *
                   grad_phi_i_P * grad_phi_j_P * P_fe_values.JxW(q));
 
-            //edit
-            //  P_local_stiffness_matrix(i, j) +=
-            //      (time_step * g_perm * EquationData::g_B_w *
-            //       grad_phi_i_P * grad_phi_j_P * P_fe_values.JxW(q));
           }
              P_local_rhs(i) += (time_step * phi_i_P * P_source_values[q] +
                               time_step * grad_phi_i_P * (Point<dim>(0, 0, 1)) *
@@ -359,13 +355,6 @@ void CoupledTH<dim>::assemble_P_system() {
                               phi_i_P * old_P_sol_values[q]) *
                              P_fe_values.JxW(q);
 
-          //edit
-          //  P_local_rhs(i) += (time_step * phi_i_P * P_source_values[q] +
-          //                     time_step * grad_phi_i_P * (Point<dim>(0, 0, 1)) *
-          //                         (-EquationData::g_B_w * g_perm *
-          //                          EquationData::g_P_grad) +
-          //                     phi_i_P * old_P_sol_values[q]) *
-          //                    P_fe_values.JxW(q);
         }
       }
 
@@ -388,11 +377,7 @@ void CoupledTH<dim>::assemble_P_system() {
 
               const auto P_face_quadrature_coord =
                   P_fe_face_values.quadrature_point(q);
-              ////edit by Yuan 07/22/2020 delete
-              // EquationData::g_perm =
-              //     interpolate1d(EquationData::g_perm_list,
-              //                   P_face_quadrature_coord[2], false);  // step-5
-              //edit by Yuan 07/22/2020 add
+
                EquationData::g_perm = data_interpolation.value(P_face_quadrature_coord[0],P_face_quadrature_coord[1],P_face_quadrature_coord[2]);
 
               for (unsigned int i = 0; i < P_dofs_per_cell; ++i) {
