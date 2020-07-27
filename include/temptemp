@@ -80,7 +80,7 @@ class CoupledTH {
   void assemble_P_system();
   void linear_solve_P();
   void linear_solve_T();
-  void output_results(PETScWrappers::MPI::Vector&, std::string) const;
+  void output_results(Vector<double>&, std::string) const;
 
   MPI_Comm mpi_communicator;
   const unsigned int n_mpi_processes;
@@ -91,27 +91,26 @@ class CoupledTH {
   IndexSet locally_relevant_dofs;
 
 
-  Triangulation<dim> triangulation;  // grid
+  parallel::shared::Triangulation<dim> triangulation;  // grid
   DoFHandler<dim> dof_handler;       // grid<->eleemnt
 
   const unsigned int degree;  // element degree
-
 
   FE_Q<dim> fe;  // element type
 
   // ConstraintMatrix constraints;  // hanging node
   PETScWrappers::MPI::SparseMatrix P_system_matrix;  // M_P + K_P
   PETScWrappers::MPI::SparseMatrix T_system_matrix;  // M_T + K_T
-
-  PETScWrappers::MPI::Vector P_solution;      // P solution at n
-  PETScWrappers::MPI::Vector T_solution;      // T solution at n
-  PETScWrappers::MPI::Vector old_P_solution;  // P solution at n-1
-  PETScWrappers::MPI::Vector old_T_solution;  // T solution at n-1
   PETScWrappers::MPI::Vector P_system_rhs;    // right hand side of P
                                               // system
   PETScWrappers::MPI::Vector T_system_rhs;    // right hand side of T
                                               // system
 
+  Vector<double> P_solution;      // P solution at n
+  Vector<double> T_solution;      // T solution at n
+  Vector<double> old_P_solution;  // P solution at n-1
+  Vector<double> old_T_solution;  // T solution at n-1
+  
   double time;                   // t
   unsigned int timestep_number;  // n_t
   std::vector<double> time_sequence;
@@ -133,12 +132,7 @@ class CoupledTH {
 
 template <int dim>
 CoupledTH<dim>::CoupledTH(const unsigned int degree) : // initialization
-    //triangulation(MPI_COMM_WORLD), 
-      mpi_communicator(MPI_COMM_WORLD),
-      n_mpi_processes(Utilities::MPI::n_mpi_processes(mpi_communicator)),
-      this_mpi_process(Utilities::MPI::this_mpi_process(mpi_communicator)),
-      pcout(std::cout,
-            (this_mpi_process == 0)),  // output the results at process 0
+      triangulation(MPI_COMM_WORLD), 
       dof_handler(triangulation),
       fe(degree),
       degree(degree),
@@ -146,7 +140,11 @@ CoupledTH<dim>::CoupledTH(const unsigned int degree) : // initialization
       timestep_number(0),
       T_iteration_namber(0),
       P_iteration_namber(0),
-      //edit by Yuan 07/22/2020
+            mpi_communicator(MPI_COMM_WORLD),
+      n_mpi_processes(Utilities::MPI::n_mpi_processes(mpi_communicator)),
+      this_mpi_process(Utilities::MPI::this_mpi_process(mpi_communicator)),
+      pcout(std::cout,
+            (this_mpi_process == 0)),  // output the results at process 0
       data_interpolation(EquationData::dimension_x,EquationData::dimension_y,EquationData::dimension_z,EquationData::file_name_interpolation)
        {
   if (EquationData::is_linspace) {
@@ -176,20 +174,16 @@ void CoupledTH<dim>::make_grid() {
   std::ifstream f("inputfiles/mesh.msh");
   gridin.read_msh(f);
     // print_mesh_info(triangulation, "outputfiles/grid-1.eps");
+  // triangulation.refine_global(1);
 }
 
 
 template <int dim>
 void CoupledTH<dim>::setup_system() {
 
-
-
-  GridTools::partition_triangulation(n_mpi_processes,
-                                     triangulation);  // partition triangulation
-
   dof_handler.distribute_dofs(fe);  // distribute dofs to grid globle
-  // dof_handler.distribute_dofs(fe);  // distribute dofs to grid
-  DoFRenumbering::subdomain_wise(dof_handler);  // mapping from globle to local
+  locally_owned_dofs = dof_handler.locally_owned_dofs();
+  DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
 
   pcout << "Number of active cells: " << triangulation.n_active_cells()
         << " (on " << triangulation.n_levels() << " levels)" << std::endl
@@ -198,29 +192,28 @@ void CoupledTH<dim>::setup_system() {
         << std::endl
         << std::endl;
 
-  const std::vector<IndexSet> locally_owned_dofs_per_proc =
-      DoFTools::locally_owned_dofs_per_subdomain(dof_handler);
-  locally_owned_dofs =
-      locally_owned_dofs_per_proc[this_mpi_process];
-
-  // sparsity pattern
-  DynamicSparsityPattern dsp(dof_handler.n_dofs());  // sparsity
-  DoFTools::make_sparsity_pattern(dof_handler, dsp);
+    DynamicSparsityPattern dsp(locally_relevant_dofs);
+    DoFTools::make_sparsity_pattern(dof_handler,
+                                    dsp);
+    SparsityTools::distribute_sparsity_pattern(dsp,
+                                               locally_owned_dofs,
+                                               mpi_communicator,
+                                               locally_relevant_dofs);
 
   // forming system matrixes and initialize these matrixesy
   T_system_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp,
                          mpi_communicator);
   T_system_rhs.reinit(locally_owned_dofs, mpi_communicator);
-  T_solution.reinit(locally_owned_dofs, mpi_communicator);
-  old_T_solution.reinit(locally_owned_dofs, mpi_communicator);
+  T_solution.reinit(dof_handler.n_dofs());
+  old_T_solution.reinit(dof_handler.n_dofs());
 
 
   // forming system matrixes and initialize these matrixes
   P_system_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp,
                          mpi_communicator);
   P_system_rhs.reinit(locally_owned_dofs, mpi_communicator);
-  P_solution.reinit(locally_owned_dofs, mpi_communicator);
-  old_P_solution.reinit(locally_owned_dofs, mpi_communicator);
+  P_solution.reinit(dof_handler.n_dofs());
+  old_P_solution.reinit(dof_handler.n_dofs());
 
 }
 
@@ -293,8 +286,7 @@ void CoupledTH<dim>::assemble_P_system() {
                                                      dof_handler.begin_active(),
                                                  endc = dof_handler.end();
   for (; cell != endc; ++cell) {
-    if (cell->subdomain_id() ==
-        this_mpi_process) {  // only assemble the system on cells that acturally
+    if (cell->is_locally_owned()) {  // only assemble the system on cells that acturally
                              // belong to this MPI process
       // initialization
       P_local_mass_matrix = 0;
@@ -420,8 +412,9 @@ void CoupledTH<dim>::assemble_P_system() {
       VectorTools::interpolate_boundary_values(
           dof_handler, *(EquationData::g_P_bnd_id + bd_i), P_boundary,
           P_bd_values);  // i表示边界的index
+      PETScWrappers::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
       MatrixTools::apply_boundary_values(
-          P_bd_values, P_system_matrix, P_solution, P_system_rhs,
+          P_bd_values, P_system_matrix, tmp, P_system_rhs,
           false);  // The reason why we may not want to make the matrix
                    // symmetric is because this would require us to write into
                    // column entries that actually reside on other processes,
@@ -430,6 +423,7 @@ void CoupledTH<dim>::assemble_P_system() {
                    // works almost as well) if we don't remove the columns
                    // associated with boundary nodes, which can be explained by
                    // the special structure of this particular non-symmetry.
+      P_solution = tmp;             
     }
   }
   timer.tock("assemble_P_system");
@@ -502,7 +496,7 @@ void CoupledTH<dim>::assemble_T_system() {
                                                      dof_handler.begin_active(),
                                                  endc = dof_handler.end();
   for (; cell != endc; ++cell) {
-    if (cell->subdomain_id() == this_mpi_process) {
+    if (cell->is_locally_owned()) {
       // initialization
       T_local_mass_matrix = 0;
       T_local_stiffness_matrix = 0;
@@ -622,8 +616,10 @@ void CoupledTH<dim>::assemble_T_system() {
       VectorTools::interpolate_boundary_values(
           dof_handler, *(EquationData::g_T_bnd_id + bd_i), T_boundary,
           T_bd_values);  // i表示边界的index
+      PETScWrappers::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
       MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix,
-                                         T_solution, T_system_rhs, false);
+                                         tmp, T_system_rhs, false);
+      T_solution = tmp;                                         
     }
   }
 
@@ -634,8 +630,11 @@ template <int dim>
 void CoupledTH<dim>::linear_solve_P() {
   cbgeo::Clock timer;
   timer.tick();
+
+  PETScWrappers::MPI::Vector distributed_P_solution(locally_owned_dofs, mpi_communicator);
+  distributed_P_solution = P_solution;
   SolverControl solver_control(
-      P_solution.size(),
+      dof_handler.n_dofs(),
       P_tol_residual * P_system_rhs.l2_norm());  // setting for cg
   PETScWrappers::SolverCG cg(solver_control, mpi_communicator);  // config cg
   PETScWrappers::PreconditionBlockJacobi preconditioner(
@@ -646,9 +645,12 @@ void CoupledTH<dim>::linear_solve_P() {
                          // by throwing away columns that correspond to row
                          // indices not stored locally; this yields a square
                          // matrix block from which we can compute an ILU.
-  cg.solve(P_system_matrix, P_solution, P_system_rhs,
+  cg.solve(P_system_matrix, distributed_P_solution, P_system_rhs,
            preconditioner);  // solve eq
   P_iteration_namber = solver_control.last_step();
+
+  P_solution = distributed_P_solution;
+  old_P_solution = distributed_P_solution;
 
   pcout << "\nCG iterations: " << P_iteration_namber << std::endl;
 
@@ -659,23 +661,26 @@ template <int dim>
 void CoupledTH<dim>::linear_solve_T() {
   cbgeo::Clock timer;
   timer.tick();
+  PETScWrappers::MPI::Vector distributed_T_solution(
+      locally_owned_dofs, mpi_communicator);
+    distributed_T_solution = T_solution;
   SolverControl solver_control(
-      std::max<std::size_t>(n_T_max_iteration, T_system_rhs.size() / 10),
+      std::max<std::size_t>(n_T_max_iteration, T_system_rhs.size()),
       T_tol_residual * T_system_rhs.l2_norm());  // setting for solver
   PETScWrappers::SolverGMRES solver(solver_control,
                                     mpi_communicator);  // config solver
   PETScWrappers::PreconditionJacobi preconditioner(T_system_matrix);  // precond
   // preconditioner.initialize(T_system_matrix, 1.0);      // initialize precond
-  solver.solve(T_system_matrix, T_solution, T_system_rhs,
+  solver.solve(T_system_matrix, distributed_T_solution, T_system_rhs,
                preconditioner);  // solve eq
+  T_solution = distributed_T_solution;
+
+  old_T_solution = distributed_T_solution;
 
   T_iteration_namber = solver_control.last_step();
 
-  pcout << " \n Iterations required for convergence:    " << T_iteration_namber
+  pcout << " \nIterations required for convergence:    " << T_iteration_namber
         << "\n";
-
-  // constraints.distribute(solution);  // make sure if the value is
-  // consistent at the constraint point
 
   timer.tock("linear_solve_T");
 }
@@ -684,44 +689,68 @@ void CoupledTH<dim>::linear_solve_T() {
 //
 // Neither is there anything new in generating graphical output:
 template <int dim>
-void CoupledTH<dim>::output_results(PETScWrappers::MPI::Vector& solution,
+void CoupledTH<dim>::output_results(Vector<double>& solution,
                                     std::string var_name) const {
-
-  const Vector<double> localized_solution(solution);
-
-  if (this_mpi_process == 0) {
-    const std::string filename = "outputfiles/" + var_name + "-solution-" +
-                                 Utilities::int_to_string(timestep_number, 3) +
-                                 ".vtk";
-    std::ofstream output(filename.c_str());
-
-    DataOut<dim> data_out;
-    data_out.attach_dof_handler(dof_handler);
-    data_out.add_data_vector(localized_solution, var_name);
-
-    // The only other thing we do here is that we also output one
-    // value per cell indicating which subdomain (i.e., MPI
-    // process) it belongs to. This requires some conversion work,
-    // since the data the library provides us with is not the one
-    // the output class expects, but this is not difficult. First,
-    // set up a vector of integers, one per cell, that is then
-    // filled by the subdomain id of each cell.
-    //
-    // The elements of this vector are then converted to a
-    // floating point vector in a second step, and this vector is
-    // added to the DataOut object, which then goes off creating
-    // output in VTK format:
-    std::vector<unsigned int> partition_int(triangulation.n_active_cells());
-    GridTools::get_subdomain_association(triangulation, partition_int);
-
-    const Vector<double> partitioning(partition_int.begin(),
+  
+  DataOut<dim> data_out;
+  data_out.attach_dof_handler(dof_handler);
+  data_out.add_data_vector(solution, var_name);
+  
+  std::vector<types::subdomain_id> partition_int(triangulation.n_active_cells());
+  GridTools::get_subdomain_association(triangulation, partition_int);
+  const Vector<double> partitioning(partition_int.begin(),
                                       partition_int.end());
+  data_out.add_data_vector(partitioning, "partitioning");
+  data_out.build_patches();
+  const std::string filename = var_name + "-solution-" + Utilities::int_to_string(timestep_number, 3);
+  const std::string pvtu_master_filename = data_out.write_vtu_with_pvtu_record(
+        "outputfiles/" , filename, timestep_number, mpi_communicator, 4);
+    if (this_mpi_process == 0)
+      {
+        static std::vector<std::pair<double, std::string>> times_and_names;
+        times_and_names.push_back(
+          std::pair<double, std::string>(time, pvtu_master_filename));
+        std::ofstream pvd_output("solution.pvd");
+        DataOutBase::write_pvd_record(pvd_output, times_and_names);
+      }
 
-    data_out.add_data_vector(partitioning, "partitioning");
 
-    data_out.build_patches();
-    data_out.write_vtk(output);
-  }
+      
+  // const Vector<double> localized_solution(solution);
+
+  // if (this_mpi_process == 0) {
+  //   const std::string filename = "outputfiles/" + var_name + "-solution-" +
+  //                                Utilities::int_to_string(timestep_number, 3) +
+  //                                ".vtk";
+  //   std::ofstream output(filename.c_str());
+
+  //   DataOut<dim> data_out;
+  //   data_out.attach_dof_handler(dof_handler);
+  //   data_out.add_data_vector(localized_solution, var_name);
+
+  //   // The only other thing we do here is that we also output one
+  //   // value per cell indicating which subdomain (i.e., MPI
+  //   // process) it belongs to. This requires some conversion work,
+  //   // since the data the library provides us with is not the one
+  //   // the output class expects, but this is not difficult. First,
+  //   // set up a vector of integers, one per cell, that is then
+  //   // filled by the subdomain id of each cell.
+  //   //
+  //   // The elements of this vector are then converted to a
+  //   // floating point vector in a second step, and this vector is
+  //   // added to the DataOut object, which then goes off creating
+  //   // output in VTK format:
+  //   std::vector<unsigned int> partition_int(triangulation.n_active_cells());
+  //   GridTools::get_subdomain_association(triangulation, partition_int);
+
+  //   const Vector<double> partitioning(partition_int.begin(),
+  //                                     partition_int.end());
+
+  //   data_out.add_data_vector(partitioning, "partitioning");
+
+  //   data_out.build_patches();
+  //   data_out.write_vtk(output);
+  // }
 }
 
 template <int dim>
@@ -768,13 +797,9 @@ void CoupledTH<dim>::run() {
 
       linear_solve_P();
 
-      old_P_solution = P_solution;
-
       assemble_T_system();
 
       linear_solve_T();
-
-      old_T_solution = T_solution;
 
       time += time_step;
 
