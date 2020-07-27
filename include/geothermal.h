@@ -85,12 +85,8 @@ class CoupledTH {
 
   Triangulation<dim> triangulation;  // grid
   DoFHandler<dim> dof_handler;       // grid<->eleemnt
-
-  const unsigned int T_degree;  // element degree
-  const unsigned int P_degree;
-
-  FE_Q<dim> P_fe;  // element type
-  FE_Q<dim> T_fe;  // element type
+  FE_Q<dim> fe;  // element type
+  const unsigned int degree;  // element degree
 
   // ConstraintMatrix constraints;  // hanging node
   PETScWrappers::MPI::SparseMatrix P_system_matrix;  // M_P + K_P
@@ -129,10 +125,8 @@ CoupledTH<dim>::CoupledTH(const unsigned int degree)  // initialization
       pcout(std::cout,
             (this_mpi_process == 0)),  // output the results at process 0
       dof_handler(triangulation),
-      T_degree(degree),
-      P_degree(degree),
-      P_fe(P_degree),
-      T_fe(T_degree),
+      degree(degree),
+      fe(degree),
 
       time(0.0),
       timestep_number(0),
@@ -171,8 +165,7 @@ void CoupledTH<dim>::make_grid_and_dofs() {
   GridTools::partition_triangulation(n_mpi_processes,
                                      triangulation);  // partition triangulation
 
-  dof_handler.distribute_dofs(P_fe);  // distribute dofs to grid globle
-  dof_handler.distribute_dofs(T_fe);  // distribute dofs to grid
+  dof_handler.distribute_dofs(fe);  // distribute dofs to grid globle
   DoFRenumbering::subdomain_wise(dof_handler);  // mapping from globle to local
 
   pcout << "Number of active cells: " << triangulation.n_active_cells()
@@ -182,28 +175,25 @@ void CoupledTH<dim>::make_grid_and_dofs() {
         << std::endl
         << std::endl;
 
+  // sparsity pattern
+  DynamicSparsityPattern dsp(dof_handler.n_dofs());  // sparsity
+  DoFTools::make_sparsity_pattern(dof_handler, dsp);
+
+  // generate local owned dof
   const std::vector<IndexSet> locally_owned_dofs_per_proc =
       DoFTools::locally_owned_dofs_per_subdomain(dof_handler);
   const IndexSet locally_owned_dofs =
       locally_owned_dofs_per_proc[this_mpi_process];
 
-  // sparsity pattern for T
-  DynamicSparsityPattern T_dsp(dof_handler.n_dofs());  // sparsity
-  DoFTools::make_sparsity_pattern(dof_handler, T_dsp);
-
   // forming system matrixes and initialize these matrixesy
-  T_system_matrix.reinit(locally_owned_dofs, locally_owned_dofs, T_dsp,
+  T_system_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp,
                          mpi_communicator);
   T_system_rhs.reinit(locally_owned_dofs, mpi_communicator);
   T_solution.reinit(locally_owned_dofs, mpi_communicator);
   old_T_solution.reinit(locally_owned_dofs, mpi_communicator);
 
-  // sparsity pattern for P
-  DynamicSparsityPattern P_dsp(dof_handler.n_dofs());  // sparsity
-  DoFTools::make_sparsity_pattern(dof_handler, P_dsp);
-
   // forming system matrixes and initialize these matrixes
-  P_system_matrix.reinit(locally_owned_dofs, locally_owned_dofs, P_dsp,
+  P_system_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp,
                          mpi_communicator);
   P_system_rhs.reinit(locally_owned_dofs, mpi_communicator);
   P_solution.reinit(locally_owned_dofs, mpi_communicator);
@@ -222,64 +212,43 @@ void CoupledTH<dim>::assemble_P_system() {
   P_system_rhs = 0;
   P_solution = 0;
 
-  // Getting T values
-  QGauss<dim> T_quadrature_formula(T_degree + 1);
+  QGauss<dim> quadrature_formula(degree + 1);
+  QGauss<dim - 1> face_quadrature_formula(degree + 1);
 
-  QGauss<dim - 1> T_face_quadrature_formula(T_degree + 1);
+  // Getting fe values
 
-  FEValues<dim> T_fe_values(T_fe, T_quadrature_formula,
+  FEValues<dim> fe_values(fe, quadrature_formula,
                             update_values | update_gradients |
                                 update_quadrature_points | update_JxW_values);
 
-  FEFaceValues<dim> T_fe_face_values(T_fe, T_face_quadrature_formula,
+  FEFaceValues<dim> fe_face_values(fe, face_quadrature_formula,
                                      update_values | update_normal_vectors |
                                          update_quadrature_points |
                                          update_JxW_values);
 
-  // Getting P values
-  QGauss<dim> P_quadrature_formula(P_degree + 1);
 
-  QGauss<dim - 1> P_face_quadrature_formula(P_degree + 1);
-
-  FEValues<dim> P_fe_values(P_fe, P_quadrature_formula,
-                            update_values | update_gradients |
-                                update_quadrature_points | update_JxW_values);
-
-  FEFaceValues<dim> P_fe_face_values(P_fe, P_face_quadrature_formula,
-                                     update_values | update_normal_vectors |
-                                         update_quadrature_points |
-                                         update_JxW_values);
-
-  // define loop number for P
-  const unsigned int P_dofs_per_cell = P_fe.dofs_per_cell;
-  const unsigned int P_n_q_points = P_quadrature_formula.size();
-  const unsigned int P_n_face_q_points = P_face_quadrature_formula.size();
-
-  // define loop number for T
-  const unsigned int T_dofs_per_cell = T_fe.dofs_per_cell;
-  const unsigned int T_n_q_points = T_quadrature_formula.size();
-  const unsigned int T_n_face_q_points = T_face_quadrature_formula.size();
+  // define loop number 
+  const unsigned int dofs_per_cell = fe.dofs_per_cell;
+  const unsigned int n_q_points = quadrature_formula.size();
+  const unsigned int n_face_q_points = face_quadrature_formula.size();
 
   // store the value at previous step at q_point for T
-  std::vector<double> old_T_sol_values(T_n_q_points);
-  std::vector<Tensor<1, dim>> old_T_sol_grads(T_n_q_points);
+  std::vector<double> old_T_sol_values(n_q_points);
+  std::vector<Tensor<1, dim>> old_T_sol_grads(n_q_points);
 
   // store the value at previous step at q_point for P
-  std::vector<double> old_P_sol_values(P_n_q_points);
-  std::vector<Tensor<1, dim>> old_P_sol_grads(P_n_q_points);
+  std::vector<double> old_P_sol_values(n_q_points);
+  std::vector<Tensor<1, dim>> old_P_sol_grads(n_q_points);
 
   // store the rhs and bd and old solution value at q_point of element for P
-  std::vector<double> P_source_values(P_n_q_points);
-  std::vector<double> QP_bd_values(P_n_face_q_points);
-
-  // store the coordinate of gauss point
-  // const Point<dim> P_quadrature_coord;
+  std::vector<double> P_source_values(n_q_points);
+  std::vector<double> QP_bd_values(n_face_q_points);
 
   //  local element matrix
-  FullMatrix<double> P_local_mass_matrix(P_dofs_per_cell, P_dofs_per_cell);
-  FullMatrix<double> P_local_stiffness_matrix(P_dofs_per_cell, P_dofs_per_cell);
-  Vector<double> P_local_rhs(P_dofs_per_cell);
-  std::vector<types::global_dof_index> P_local_dof_indices(P_dofs_per_cell);
+  FullMatrix<double> P_local_mass_matrix(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> P_local_stiffness_matrix(dofs_per_cell, dofs_per_cell);
+  Vector<double> P_local_rhs(dofs_per_cell);
+  std::vector<types::global_dof_index> P_local_dof_indices(dofs_per_cell);
 
   // boudnary condition and source term
   EquationData::PressureSourceTerm<dim> P_source_term;
@@ -298,76 +267,76 @@ void CoupledTH<dim>::assemble_P_system() {
       P_local_mass_matrix = 0;
       P_local_stiffness_matrix = 0;
       P_local_rhs = 0;
-      T_fe_values.reinit(cell);
-      P_fe_values.reinit(cell);
+      fe_values.reinit(cell);
+      fe_values.reinit(cell);
 
       // get the values at gauss point old_T_sol_values from the system
       // old_T_solution
-      T_fe_values.get_function_values(old_T_solution, old_T_sol_values);
-      T_fe_values.get_function_gradients(old_T_solution, old_T_sol_grads);
-      P_fe_values.get_function_values(old_P_solution, old_P_sol_values);
-      P_fe_values.get_function_gradients(old_P_solution, old_P_sol_grads);
+      fe_values.get_function_values(old_T_solution, old_T_sol_values);
+      fe_values.get_function_gradients(old_T_solution, old_T_sol_grads);
+      fe_values.get_function_values(old_P_solution, old_P_sol_values);
+      fe_values.get_function_gradients(old_P_solution, old_P_sol_grads);
 
       // get source term value at the gauss point
       P_source_term.set_time(time);
-      P_source_term.value_list(P_fe_values.get_quadrature_points(),
+      P_source_term.value_list(fe_values.get_quadrature_points(),
                                P_source_values);  // 一列q个
 
       // loop for q_point ASSMBLING CELL METRIX (weak form equation writing)
-      for (unsigned int q = 0; q < P_n_q_points; ++q) {
+      for (unsigned int q = 0; q < n_q_points; ++q) {
 
-        const auto P_quadrature_coord = P_fe_values.quadrature_point(q);
+        const auto P_quadrature_coord = fe_values.quadrature_point(q);
         EquationData::g_perm = interpolate1d(
             EquationData::g_perm_list, P_quadrature_coord[2], false);  // step-5
 
-        for (unsigned int i = 0; i < P_dofs_per_cell; ++i) {
-          const Tensor<1, dim> grad_phi_i_P = P_fe_values.shape_grad(i, q);
-          const double phi_i_P = P_fe_values.shape_value(i, q);
-          for (unsigned int j = 0; j < P_dofs_per_cell; ++j) {
-            const Tensor<1, dim> grad_phi_j_P = P_fe_values.shape_grad(j, q);
-            const double phi_j_P = P_fe_values.shape_value(j, q);
+        for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+          const Tensor<1, dim> grad_phi_i_P = fe_values.shape_grad(i, q);
+          const double phi_i_P = fe_values.shape_value(i, q);
+          for (unsigned int j = 0; j < dofs_per_cell; ++j) {
+            const Tensor<1, dim> grad_phi_j_P = fe_values.shape_grad(j, q);
+            const double phi_j_P = fe_values.shape_value(j, q);
             P_local_mass_matrix(i, j) +=
-                (phi_i_P * phi_j_P * P_fe_values.JxW(q));
+                (phi_i_P * phi_j_P * fe_values.JxW(q));
             P_local_stiffness_matrix(i, j) +=
                 (time_step * EquationData::g_perm * EquationData::g_B_w *
-                 grad_phi_i_P * grad_phi_j_P * P_fe_values.JxW(q));
+                 grad_phi_i_P * grad_phi_j_P * fe_values.JxW(q));
           }
           P_local_rhs(i) += (time_step * phi_i_P * P_source_values[q] +
                              time_step * grad_phi_i_P * (Point<dim>(0, 0, 1)) *
                                  (-EquationData::g_B_w * EquationData::g_perm *
                                   EquationData::g_P_grad) +
                              phi_i_P * old_P_sol_values[q]) *
-                            P_fe_values.JxW(q);
+                            fe_values.JxW(q);
         }
       }
 
       // APPLIED NEWMAN BOUNDARY CONDITION
-      for (int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id; bd_i++) {
+      for (int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id; ++bd_i) {
         for (unsigned int face_no = 0;
              face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
           if (cell->at_boundary(face_no) &&
               cell->face(face_no)->boundary_id() ==
                   EquationData::g_QP_bnd_id[bd_i]) {
-            P_fe_face_values.reinit(cell, face_no);
+            fe_face_values.reinit(cell, face_no);
 
             // get boundary condition
             QP_boundary.set_time(time);
             QP_boundary.set_boundary_id(*(EquationData::g_QP_bnd_id + bd_i));
-            QP_boundary.value_list(P_fe_face_values.get_quadrature_points(),
+            QP_boundary.value_list(fe_face_values.get_quadrature_points(),
                                    QP_bd_values);
 
-            for (unsigned int q = 0; q < P_n_face_q_points; ++q) {
+            for (unsigned int q = 0; q < n_face_q_points; ++q) {
 
               const auto P_face_quadrature_coord =
-                  P_fe_face_values.quadrature_point(q);
+                  fe_face_values.quadrature_point(q);
               EquationData::g_perm =
                   interpolate1d(EquationData::g_perm_list,
                                 P_face_quadrature_coord[2], false);  // step-5
 
-              for (unsigned int i = 0; i < P_dofs_per_cell; ++i) {
+              for (unsigned int i = 0; i < dofs_per_cell; ++i) {
                 P_local_rhs(i) += -time_step * EquationData::g_B_w *
-                                  (P_fe_face_values.shape_value(i, q) *
-                                   QP_bd_values[q] * P_fe_face_values.JxW(q));
+                                  (fe_face_values.shape_value(i, q) *
+                                   QP_bd_values[q] * fe_face_values.JxW(q));
               }
             }
           }
@@ -377,8 +346,8 @@ void CoupledTH<dim>::assemble_P_system() {
       // local ->globe
       cell->get_dof_indices(P_local_dof_indices);
 
-      for (unsigned int i = 0; i < P_dofs_per_cell; ++i) {
-        for (unsigned int j = 0; j < P_dofs_per_cell; ++j) {
+      for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+        for (unsigned int j = 0; j < dofs_per_cell; ++j) {
           P_system_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
                               P_local_mass_matrix(i, j));  // sys_mass matrix
           P_system_matrix.add(
@@ -403,7 +372,7 @@ void CoupledTH<dim>::assemble_P_system() {
   // // ADD DIRICLET BOUNDARY
   {
 
-    for (int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; bd_i++) {
+    for (int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; ++bd_i) {
 
       P_boundary.set_time(time);
       P_boundary.set_boundary_id(*(EquationData::g_P_bnd_id + bd_i));
@@ -435,61 +404,43 @@ void CoupledTH<dim>::assemble_T_system() {
   T_system_rhs = 0;
   T_solution = 0;
 
-  // Getting T values
-  QGauss<dim> T_quadrature_formula(T_degree + 1);
+  QGauss<dim> quadrature_formula(degree + 1);
+  QGauss<dim - 1> face_quadrature_formula(degree + 1);
 
-  QGauss<dim - 1> T_face_quadrature_formula(T_degree + 1);
-
-  FEValues<dim> T_fe_values(T_fe, T_quadrature_formula,
+  // Getting fe values
+  FEValues<dim> fe_values(fe, quadrature_formula,
                             update_values | update_gradients |
                                 update_quadrature_points | update_JxW_values);
 
-  FEFaceValues<dim> T_fe_face_values(T_fe, T_face_quadrature_formula,
-                                     update_values | update_normal_vectors |
-                                         update_quadrature_points |
-                                         update_JxW_values);
-
-  // Getting P values
-  QGauss<dim> P_quadrature_formula(P_degree + 1);
-
-  QGauss<dim - 1> P_face_quadrature_formula(P_degree + 1);
-
-  FEValues<dim> P_fe_values(P_fe, P_quadrature_formula,
-                            update_values | update_gradients |
-                                update_quadrature_points | update_JxW_values);
-
-  FEFaceValues<dim> P_fe_face_values(P_fe, P_face_quadrature_formula,
+  FEFaceValues<dim> fe_face_values(fe, face_quadrature_formula,
                                      update_values | update_normal_vectors |
                                          update_quadrature_points |
                                          update_JxW_values);
 
   // define loop number
-  const unsigned int P_dofs_per_cell = P_fe.dofs_per_cell;
-  const unsigned int P_n_q_points = P_quadrature_formula.size();
-  const unsigned int P_n_face_q_points = P_face_quadrature_formula.size();
-  const unsigned int T_dofs_per_cell = T_fe.dofs_per_cell;
-  const unsigned int T_n_q_points = T_quadrature_formula.size();
-  const unsigned int T_n_face_q_points = T_face_quadrature_formula.size();
+  const unsigned int dofs_per_cell = fe.dofs_per_cell;
+  const unsigned int n_q_points = quadrature_formula.size();
+  const unsigned int n_face_q_points = face_quadrature_formula.size();
 
   // store the value at previous step at q_point for T
-  std::vector<double> old_T_sol_values(T_n_q_points);
-  std::vector<Tensor<1, dim>> old_T_sol_grads(T_n_q_points);
+  std::vector<double> old_T_sol_values(n_q_points);
+  std::vector<Tensor<1, dim>> old_T_sol_grads(n_q_points);
 
   // store the value at previous step at q_point for P
-  std::vector<double> old_P_sol_values(P_n_q_points);
-  std::vector<Tensor<1, dim>> old_P_sol_grads(P_n_q_points);
+  std::vector<double> old_P_sol_values(n_q_points);
+  std::vector<Tensor<1, dim>> old_P_sol_grads(n_q_points);
 
   // store the source and bd value at q_point
-  std::vector<double> T_source_values(T_n_q_points);
-  std::vector<double> QT_bd_values(T_n_face_q_points);
+  std::vector<double> T_source_values(n_q_points);
+  std::vector<double> QT_bd_values(n_face_q_points);
 
   //  local element matrix
-  FullMatrix<double> T_local_mass_matrix(T_dofs_per_cell, T_dofs_per_cell);
-  FullMatrix<double> T_local_stiffness_matrix(T_dofs_per_cell, T_dofs_per_cell);
-  FullMatrix<double> T_local_convection_matrix(T_dofs_per_cell,
-                                               T_dofs_per_cell);
-  Vector<double> T_local_rhs(T_dofs_per_cell);
-  std::vector<types::global_dof_index> T_local_dof_indices(T_dofs_per_cell);
+  FullMatrix<double> T_local_mass_matrix(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> T_local_stiffness_matrix(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> T_local_convection_matrix(dofs_per_cell,
+                                               dofs_per_cell);
+  Vector<double> T_local_rhs(dofs_per_cell);
+  std::vector<types::global_dof_index> T_local_dof_indices(dofs_per_cell);
 
   // boudnary condition
   EquationData::TemperatureSourceTerm<dim> T_source_term;
@@ -507,77 +458,77 @@ void CoupledTH<dim>::assemble_T_system() {
       T_local_stiffness_matrix = 0;
       T_local_convection_matrix = 0;
       T_local_rhs = 0;
-      T_fe_values.reinit(cell);
-      P_fe_values.reinit(cell);  //// may combine in the same cell
+      fe_values.reinit(cell);
+      fe_values.reinit(cell);  //// may combine in the same cell
       // get the values at gauss point
-      T_fe_values.get_function_values(old_T_solution, old_T_sol_values);
-      T_fe_values.get_function_gradients(old_T_solution, old_T_sol_grads);
-      P_fe_values.get_function_values(old_P_solution, old_P_sol_values);
-      P_fe_values.get_function_gradients(old_P_solution, old_P_sol_grads);
+      fe_values.get_function_values(old_T_solution, old_T_sol_values);
+      fe_values.get_function_gradients(old_T_solution, old_T_sol_grads);
+      fe_values.get_function_values(old_P_solution, old_P_sol_values);
+      fe_values.get_function_gradients(old_P_solution, old_P_sol_grads);
       // get right hand side
       T_source_term.set_time(time);
-      T_source_term.value_list(T_fe_values.get_quadrature_points(),
+      T_source_term.value_list(fe_values.get_quadrature_points(),
                                T_source_values);
 
       // loop for q_point ASSMBLING CELL METRIX (weak form equation writing)
-      for (unsigned int q = 0; q < T_n_q_points; ++q) {
-        const auto T_quadrature_coord = T_fe_values.quadrature_point(q);
+      for (unsigned int q = 0; q < n_q_points; ++q) {
+        const auto T_quadrature_coord = fe_values.quadrature_point(q);
         EquationData::g_perm = interpolate1d(
             EquationData::g_perm_list, T_quadrature_coord[2], false);  // step-5
 
-        for (unsigned int i = 0; i < T_dofs_per_cell; ++i) {
-          const Tensor<1, dim> grad_phi_i_T = T_fe_values.shape_grad(i, q);
-          const double phi_i_T = T_fe_values.shape_value(i, q);
-          for (unsigned int j = 0; j < T_dofs_per_cell; ++j) {
-            const Tensor<1, dim> grad_phi_j_T = T_fe_values.shape_grad(j, q);
-            const double phi_j_T = T_fe_values.shape_value(j, q);
+        for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+          const Tensor<1, dim> grad_phi_i_T = fe_values.shape_grad(i, q);
+          const double phi_i_T = fe_values.shape_value(i, q);
+          for (unsigned int j = 0; j < dofs_per_cell; ++j) {
+            const Tensor<1, dim> grad_phi_j_T = fe_values.shape_grad(j, q);
+            const double phi_j_T = fe_values.shape_value(j, q);
             T_local_mass_matrix(i, j) +=
-                (phi_i_T * phi_j_T * T_fe_values.JxW(q));
+                (phi_i_T * phi_j_T * fe_values.JxW(q));
             T_local_stiffness_matrix(i, j) +=
                 time_step * (EquationData::g_lam / EquationData::g_c_T *
-                             grad_phi_i_T * grad_phi_j_T * T_fe_values.JxW(q));
+                             grad_phi_i_T * grad_phi_j_T * fe_values.JxW(q));
             T_local_convection_matrix(i, j) +=
                 time_step * EquationData::g_c_w / EquationData::g_c_T *
                 phi_i_T *
                 (-EquationData::g_perm *
                  (old_P_sol_grads[q] +
                   (Point<dim>(0, 0, 1)) * EquationData::g_P_grad) *
-                 grad_phi_j_T * T_fe_values.JxW(q));
+                 grad_phi_j_T * fe_values.JxW(q));
           }
 
           T_local_rhs(i) +=
               (time_step * T_source_values[q] + old_T_sol_values[q]) * phi_i_T *
-              T_fe_values.JxW(q);
+              fe_values.JxW(q);
         }
       }
 
       // APPLIED NEUMAN BOUNDARY CONDITION
-      for (int bd_i = 0; bd_i < EquationData::g_num_QT_bnd_id; bd_i++) {
+      for (int bd_i = 0; bd_i < EquationData::g_num_QT_bnd_id; ++bd_i) {
         for (unsigned int face_no = 0;
              face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
           if (cell->at_boundary(face_no) &&
               cell->face(face_no)->boundary_id() ==
                   EquationData::g_QT_bnd_id[bd_i]) {
-            T_fe_face_values.reinit(cell, face_no);
+            fe_face_values.reinit(cell, face_no);
 
             // get boundary condition
             QT_boundary.set_time(time);
             QT_boundary.set_boundary_id(*(EquationData::g_QT_bnd_id + bd_i));
-            QT_boundary.value_list(T_fe_face_values.get_quadrature_points(),
+            QT_boundary.value_list(fe_face_values.get_quadrature_points(),
                                    QT_bd_values);
 
-            for (unsigned int q = 0; q < T_n_face_q_points; ++q) {
+            for (unsigned int q = 0; q < n_face_q_points; ++q) {
 
               const auto T_face_quadrature_coord =
-                  T_fe_face_values.quadrature_point(q);
+                  fe_face_values.quadrature_point(q);
               EquationData::g_perm =
                   interpolate1d(EquationData::g_perm_list,
                                 T_face_quadrature_coord[2], false);  // step-5
 
-              for (unsigned int i = 0; i < T_dofs_per_cell; ++i) {
+              for (unsigned int i = 0; i < dofs_per_cell; ++i) {
                 T_local_rhs(i) += -time_step / EquationData::g_c_T *
-                                  T_fe_face_values.shape_value(i, q) *
-                                  QT_bd_values[q] * T_fe_face_values.JxW(q);
+                                  fe_face_values.shape_value(i, q) *
+                                  QT_bd_values[q] * fe_face_values.JxW(q);
               }
             }
           }
@@ -585,8 +536,8 @@ void CoupledTH<dim>::assemble_T_system() {
       }
       // local ->globe
       cell->get_dof_indices(T_local_dof_indices);
-      for (unsigned int i = 0; i < T_dofs_per_cell; ++i) {
-        for (unsigned int j = 0; j < T_dofs_per_cell; ++j) {
+      for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+        for (unsigned int j = 0; j < dofs_per_cell; ++j) {
           T_system_matrix.add(T_local_dof_indices[i], T_local_dof_indices[j],
                               T_local_mass_matrix(i, j));  // mass_matrix
           T_system_matrix.add(
@@ -608,7 +559,7 @@ void CoupledTH<dim>::assemble_T_system() {
   // ADD DIRICHLET BOUNDARY
   {
 
-    for (int bd_i = 0; bd_i < EquationData::g_num_T_bnd_id; bd_i++) {
+    for (int bd_i = 0; bd_i < EquationData::g_num_T_bnd_id; ++bd_i) {
 
       T_boundary.set_time(time);
       T_boundary.set_boundary_id(*(EquationData::g_T_bnd_id + bd_i));
@@ -642,6 +593,8 @@ void CoupledTH<dim>::linear_solve_P() {
                          // matrix block from which we can compute an ILU.
   cg.solve(P_system_matrix, P_solution, P_system_rhs,
            preconditioner);  // solve eq
+
+  old_P_solution = P_solution;
   P_iteration_namber = solver_control.last_step();
 
   pcout << "\nCG iterations: " << P_iteration_namber << std::endl;
@@ -654,7 +607,7 @@ void CoupledTH<dim>::linear_solve_T() {
   cbgeo::Clock timer;
   timer.tick();
   SolverControl solver_control(
-      std::max<std::size_t>(n_T_max_iteration, T_system_rhs.size() / 10),
+      std::max<std::size_t>(n_T_max_iteration, T_system_rhs.size()),
       T_tol_residual * T_system_rhs.l2_norm());  // setting for solver
   PETScWrappers::SolverGMRES solver(solver_control,
                                     mpi_communicator);  // config solver
@@ -663,9 +616,11 @@ void CoupledTH<dim>::linear_solve_T() {
   solver.solve(T_system_matrix, T_solution, T_system_rhs,
                preconditioner);  // solve eq
 
+  old_T_solution = T_solution;
+
   T_iteration_namber = solver_control.last_step();
 
-  pcout << "  Iterations required for convergence:    " << T_iteration_namber
+  pcout << "\nIterations required for convergence:    " << T_iteration_namber
         << "\n";
 
   // constraints.distribute(solution);  // make sure if the value is
@@ -760,13 +715,9 @@ void CoupledTH<dim>::run() {
 
       linear_solve_P();
 
-      old_P_solution = P_solution;
-
       assemble_T_system();
 
       linear_solve_T();
-
-      old_T_solution = T_solution;
 
       time += time_step;
 
