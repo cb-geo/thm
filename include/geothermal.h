@@ -26,6 +26,7 @@
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/sparsity_tools.h>
 #include <deal.II/lac/vector.h>
+#include <deal.II/lac/matrix_out.h>
 
 // MPI support):
 #include <deal.II/lac/petsc_parallel_sparse_matrix.h>
@@ -59,6 +60,7 @@
 #include <deal.II/numerics/matrix_tools.h>
 #include <deal.II/numerics/solution_transfer.h>
 #include <deal.II/numerics/vector_tools.h>
+
 
 #include "interpolation.h"
 
@@ -751,11 +753,11 @@ void CoupledTH<dim>::run() {
     pcout << "\n" << std::endl << std::endl;
 
     // MatrixOut matrix_out;
-    // std::ofstream out ("2rhs_matrix_at_"+std::to_string(time));
-    // // matrix_out.build_patches (system_matrix, "system_matrix");
-    // // matrix_out.write_gnuplot (out);
-    // // system_matrix.print_formatted(out);
-    // system_rhs.print(out);
+    // std::ofstream out_T_matrix ("/outputfiles/2rhs_T_matrix_at_"+std::to_string(time));
+    // matrix_out.build_patches (T_system_matrix, "T_system_matrix");
+    // matrix_out.write_gnuplot (out_T_matrix);
+    // T_system_matrix.print_formatted(out_T_matrix);
+    // T_system_rhs.print(out);
 
   } while (time < period);
 }
