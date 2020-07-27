@@ -182,8 +182,6 @@ void CoupledTH<dim>::make_grid() {
 template <int dim>
 void CoupledTH<dim>::setup_system() {
 
-
-
   GridTools::partition_triangulation(n_mpi_processes,
                                      triangulation);  // partition triangulation
 
@@ -262,9 +260,6 @@ void CoupledTH<dim>::assemble_P_system() {
   // store the rhs and bd and old solution value at q_point of element for P
   std::vector<double> P_source_values(n_q_points);
   std::vector<double> QP_bd_values(n_face_q_points);
-
-  // store the coordinate of gauss point
-  // const Point<dim> P_quadrature_coord;
 
   //  local element matrix
   FullMatrix<double> P_local_mass_matrix(dofs_per_cell, dofs_per_cell);
