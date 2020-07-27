@@ -108,7 +108,7 @@ class CoupledTH {
   std::vector<double> time_sequence;
 
   double period;
-  int n_time_step;
+  const int n_time_step;
   double time_step;
 
   unsigned int P_iteration_namber;
