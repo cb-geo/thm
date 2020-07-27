@@ -93,7 +93,7 @@ and update the submission script as:
 #!/bin/bash
 #SBATCH -J thm-N1n2      # job name
 #SBATCH -o thm-N1n2.o%j  # output and error file name (%j expands to jobID)
-#SBATCH -A Material-Point-Metho # Project
+#SBATCH -A Material-Point-Method # Project
 #SBATCH -N 1             # number of nodes requested
 #SBATCH -n 2             # total number of mpi tasks requested
 #SBATCH -p normal     # queue (partition) -- normal, development, etc.
