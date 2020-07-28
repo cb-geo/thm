@@ -11,15 +11,6 @@ int main(int argc, char** argv) {
   double seconds;
   // get_parameter("inputfiles/parameters.csv", EquationData::g_perm_list, 1);
 
-  if (EquationData::time_unit == 'd') {
-    seconds = 86400;
-  } else if (EquationData::time_unit == 'h') {
-    seconds = 3600;
-  }
-  for (unsigned int i = 0; i < EquationData::g_time_sequence.size(); ++i) {
-    EquationData::g_time_sequence[i] *= seconds;
-  }
-
   try {
     using namespace dealii;
 

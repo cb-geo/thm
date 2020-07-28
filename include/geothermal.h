@@ -120,7 +120,7 @@ class CoupledTH {
   double P_tol_residual = EquationData::g_P_tol_residual;
   double T_tol_residual = EquationData::g_T_tol_residual;
 
-  Interpolation<3> data_interpolation;
+
 };
 
 template <int dim>
@@ -137,8 +137,8 @@ CoupledTH<dim>::CoupledTH(const unsigned int degree)  // initialization
       time(0.0),
       timestep_number(0),
       T_iteration_namber(0),
-      P_iteration_namber(0),
-      data_interpolation(EquationData::dimension_x,EquationData::dimension_y,EquationData::dimension_z,EquationData::file_name_interpolation)
+      P_iteration_namber(0)
+      
  {
   if (EquationData::is_linspace) {
     period = EquationData::g_period;
@@ -165,7 +165,7 @@ void CoupledTH<dim>::make_grid_and_dofs() {
   timer.tick();
   GridIn<dim> gridin;  // instantiate a gridinput
   gridin.attach_triangulation(triangulation);
-  std::ifstream f("inputfiles/mesh.msh");
+  std::ifstream f("inputfiles/mesh_small.msh");
   gridin.read_msh(f);
 
   // print_mesh_info(triangulation, "outputfiles/grid-1.eps");
@@ -296,7 +296,7 @@ void CoupledTH<dim>::assemble_P_system() {
         // EquationData::g_perm = interpolate1d(
         //     EquationData::g_perm_list, P_quadrature_coord[2], false);  // step-5
 
-       EquationData::g_perm = data_interpolation.value(P_quadrature_coord[0],P_quadrature_coord[1],P_quadrature_coord[2]);
+      //  EquationData::g_perm = data_interpolation.value(P_quadrature_coord[0],P_quadrature_coord[1],P_quadrature_coord[2]);
 
 
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
@@ -342,7 +342,7 @@ void CoupledTH<dim>::assemble_P_system() {
               // EquationData::g_perm =
               //     interpolate1d(EquationData::g_perm_list,
               //                   P_face_quadrature_coord[2], false);  // step-5
-              EquationData::g_perm = data_interpolation.value(P_face_quadrature_coord[0],P_face_quadrature_coord[1],P_face_quadrature_coord[2]);
+              // EquationData::g_perm = data_interpolation.value(P_face_quadrature_coord[0],P_face_quadrature_coord[1],P_face_quadrature_coord[2]);
 
 
               for (unsigned int i = 0; i < dofs_per_cell; ++i) {
@@ -486,7 +486,7 @@ void CoupledTH<dim>::assemble_T_system() {
         const auto T_quadrature_coord = fe_values.quadrature_point(q);
         // EquationData::g_perm = interpolate1d(
         //     EquationData::g_perm_list, T_quadrature_coord[2], false);  // step-5
-        EquationData::g_perm = data_interpolation.value(T_quadrature_coord[0], T_quadrature_coord[1], T_quadrature_coord[2]);
+        // EquationData::g_perm = data_interpolation.value(T_quadrature_coord[0], T_quadrature_coord[1], T_quadrature_coord[2]);
 
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           const Tensor<1, dim> grad_phi_i_T = fe_values.shape_grad(i, q);
@@ -536,7 +536,7 @@ void CoupledTH<dim>::assemble_T_system() {
               // EquationData::g_perm =
               //     interpolate1d(EquationData::g_perm_list,
               //                   T_face_quadrature_coord[2], false);  // step-5
-              EquationData::g_perm = data_interpolation.value(T_face_quadrature_coord[0], T_face_quadrature_coord[1], T_face_quadrature_coord[2]);
+              // EquationData::g_perm = data_interpolation.value(T_face_quadrature_coord[0], T_face_quadrature_coord[1], T_face_quadrature_coord[2]);
 
               for (unsigned int i = 0; i < dofs_per_cell; ++i) {
                 T_local_rhs(i) += -time_step / EquationData::g_c_T *
@@ -752,12 +752,12 @@ void CoupledTH<dim>::run() {
 
     pcout << "\n" << std::endl << std::endl;
 
-    // MatrixOut matrix_out;
-    // std::ofstream out_T_matrix ("/outputfiles/2rhs_T_matrix_at_"+std::to_string(time));
-    // matrix_out.build_patches (T_system_matrix, "T_system_matrix");
+    MatrixOut matrix_out;
+    std::ofstream out_T_matrix ("/outputfiles/2rhs_T_matrix_at_"+std::to_string(time));
+    matrix_out.build_patches (T_system_matrix, "T_system_matrix");
     // matrix_out.write_gnuplot (out_T_matrix);
     // T_system_matrix.print_formatted(out_T_matrix);
-    // T_system_rhs.print(out);
+    T_system_rhs.print(out_T_matrix);
 
   } while (time < period);
 }

@@ -45,8 +45,7 @@ double PressureDirichletBoundaryValues<dim>::value(
   // } else if (boundary_id_ == 5) {
   //   return g_Pb_top + g_P_grad * (0. - p[2]);
   // }
-  if (boundary_id_ == 3 || boundary_id_ == 8 || boundary_id_ == 12 ||
-      boundary_id_ == 13 || boundary_id_ == 14) {
+  if (boundary_id_ == 6) {
     return g_Pb_top + g_P_grad * (0. - p[2]);
   }
 }
@@ -86,10 +85,9 @@ double TemperatureDirichletBoundaryValues<dim>::value(
   // } else if (boundary_id_ == 5) {
   //   return g_Tb_top + g_T_grad * (0. - p[2]);
   // }
-  if (boundary_id_ == 4) {
+  if (boundary_id_ == 1) {
     return g_Tb_well;
-  } else if (boundary_id_ == 3 || boundary_id_ == 8 || boundary_id_ == 12 ||
-             boundary_id_ == 13 || boundary_id_ == 14) {
+  } else if (boundary_id_ == 6) {
     return g_Tb_top + g_T_grad * (0. - p[2]);
   }
 }
@@ -126,7 +124,7 @@ double PressureNeumanBoundaryValues<dim>::value(
   // Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
   // Assert(dim == 3, ExcNotImplemented());
   double time = this->get_time();  // get time
-  if (boundary_id_ == 4) {
+  if (boundary_id_ == 1) {
     return g_Qb_well;
   }
 }
@@ -161,9 +159,7 @@ double TemperatureNeumanBoundaryValues<dim>::value(
                        // this case
   } else if (boundary_id_ == 3) {
     return g_QT_top;
-  } else if (boundary_id_ == 8) {
-    return g_QT_bottom;
-  }
+  } 
 }
 
 // template <int dim>
