@@ -26,9 +26,8 @@
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/sparsity_tools.h>
 #include <deal.II/lac/vector.h>
+#include <deal.II/lac/matrix_out.h>
 
-// shared tria:
-#include <deal.II/distributed/shared_tria.h>
 // MPI support):
 #include <deal.II/lac/petsc_parallel_sparse_matrix.h>
 #include <deal.II/lac/petsc_parallel_vector.h>
@@ -62,6 +61,7 @@
 #include <deal.II/numerics/solution_transfer.h>
 #include <deal.II/numerics/vector_tools.h>
 
+
 #include "interpolation.h"
 
 using namespace dealii;
@@ -74,8 +74,7 @@ class CoupledTH {
   void run();
 
  private:
-  void make_grid();
-  void setup_system();
+  void make_grid_and_dofs();
   void assemble_T_system();
   void assemble_P_system();
   void linear_solve_P();
@@ -83,21 +82,15 @@ class CoupledTH {
   void output_results(PETScWrappers::MPI::Vector&, std::string) const;
 
   MPI_Comm mpi_communicator;
+
   const unsigned int n_mpi_processes;
   const unsigned int this_mpi_process;
   ConditionalOStream pcout;
 
-  IndexSet locally_owned_dofs;
-  IndexSet locally_relevant_dofs;
-
-
   Triangulation<dim> triangulation;  // grid
   DoFHandler<dim> dof_handler;       // grid<->eleemnt
-
-  const unsigned int degree;  // element degree
-
-
   FE_Q<dim> fe;  // element type
+  const unsigned int degree;  // element degree
 
   // ConstraintMatrix constraints;  // hanging node
   PETScWrappers::MPI::SparseMatrix P_system_matrix;  // M_P + K_P
@@ -127,28 +120,26 @@ class CoupledTH {
   double P_tol_residual = EquationData::g_P_tol_residual;
   double T_tol_residual = EquationData::g_T_tol_residual;
 
-  //edit by Yuan 07/22/2020
   Interpolation<3> data_interpolation;
 };
 
 template <int dim>
-CoupledTH<dim>::CoupledTH(const unsigned int degree) : // initialization
-    //triangulation(MPI_COMM_WORLD), 
-      mpi_communicator(MPI_COMM_WORLD),
+CoupledTH<dim>::CoupledTH(const unsigned int degree)  // initialization
+    : mpi_communicator(MPI_COMM_WORLD),
       n_mpi_processes(Utilities::MPI::n_mpi_processes(mpi_communicator)),
       this_mpi_process(Utilities::MPI::this_mpi_process(mpi_communicator)),
       pcout(std::cout,
             (this_mpi_process == 0)),  // output the results at process 0
       dof_handler(triangulation),
-      fe(degree),
       degree(degree),
+      fe(degree),
+
       time(0.0),
       timestep_number(0),
       T_iteration_namber(0),
       P_iteration_namber(0),
-      //edit by Yuan 07/22/2020
       data_interpolation(EquationData::dimension_x,EquationData::dimension_y,EquationData::dimension_z,EquationData::file_name_interpolation)
-       {
+ {
   if (EquationData::is_linspace) {
     period = EquationData::g_period;
     n_time_step = EquationData::g_n_time_step;
@@ -168,25 +159,21 @@ CoupledTH<dim>::~CoupledTH() {
 }
 
 template <int dim>
-void CoupledTH<dim>::make_grid() {
+void CoupledTH<dim>::make_grid_and_dofs() {
 
-
+  cbgeo::Clock timer;
+  timer.tick();
   GridIn<dim> gridin;  // instantiate a gridinput
   gridin.attach_triangulation(triangulation);
   std::ifstream f("inputfiles/mesh.msh");
   gridin.read_msh(f);
-    // print_mesh_info(triangulation, "outputfiles/grid-1.eps");
-}
 
-
-template <int dim>
-void CoupledTH<dim>::setup_system() {
+  // print_mesh_info(triangulation, "outputfiles/grid-1.eps");
 
   GridTools::partition_triangulation(n_mpi_processes,
                                      triangulation);  // partition triangulation
 
   dof_handler.distribute_dofs(fe);  // distribute dofs to grid globle
-  // dof_handler.distribute_dofs(fe);  // distribute dofs to grid
   DoFRenumbering::subdomain_wise(dof_handler);  // mapping from globle to local
 
   pcout << "Number of active cells: " << triangulation.n_active_cells()
@@ -196,14 +183,15 @@ void CoupledTH<dim>::setup_system() {
         << std::endl
         << std::endl;
 
-  const std::vector<IndexSet> locally_owned_dofs_per_proc =
-      DoFTools::locally_owned_dofs_per_subdomain(dof_handler);
-  locally_owned_dofs =
-      locally_owned_dofs_per_proc[this_mpi_process];
-
   // sparsity pattern
   DynamicSparsityPattern dsp(dof_handler.n_dofs());  // sparsity
   DoFTools::make_sparsity_pattern(dof_handler, dsp);
+
+  // generate local owned dof
+  const std::vector<IndexSet> locally_owned_dofs_per_proc =
+      DoFTools::locally_owned_dofs_per_subdomain(dof_handler);
+  const IndexSet locally_owned_dofs =
+      locally_owned_dofs_per_proc[this_mpi_process];
 
   // forming system matrixes and initialize these matrixesy
   T_system_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp,
@@ -212,7 +200,6 @@ void CoupledTH<dim>::setup_system() {
   T_solution.reinit(locally_owned_dofs, mpi_communicator);
   old_T_solution.reinit(locally_owned_dofs, mpi_communicator);
 
-
   // forming system matrixes and initialize these matrixes
   P_system_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp,
                          mpi_communicator);
@@ -220,6 +207,7 @@ void CoupledTH<dim>::setup_system() {
   P_solution.reinit(locally_owned_dofs, mpi_communicator);
   old_P_solution.reinit(locally_owned_dofs, mpi_communicator);
 
+  timer.tock("Grid_and_dofs");
 }
 
 template <int dim>
@@ -235,7 +223,8 @@ void CoupledTH<dim>::assemble_P_system() {
   QGauss<dim> quadrature_formula(degree + 1);
   QGauss<dim - 1> face_quadrature_formula(degree + 1);
 
-  // Getting T values
+  // Getting fe values
+
   FEValues<dim> fe_values(fe, quadrature_formula,
                             update_values | update_gradients |
                                 update_quadrature_points | update_JxW_values);
@@ -245,6 +234,8 @@ void CoupledTH<dim>::assemble_P_system() {
                                          update_quadrature_points |
                                          update_JxW_values);
 
+
+  // define loop number 
   const unsigned int dofs_per_cell = fe.dofs_per_cell;
   const unsigned int n_q_points = quadrature_formula.size();
   const unsigned int n_face_q_points = face_quadrature_formula.size();
@@ -302,14 +293,11 @@ void CoupledTH<dim>::assemble_P_system() {
       for (unsigned int q = 0; q < n_q_points; ++q) {
 
         const auto P_quadrature_coord = fe_values.quadrature_point(q);
-
-        //edit by Yuan 07/22/2020 delete
         // EquationData::g_perm = interpolate1d(
         //     EquationData::g_perm_list, P_quadrature_coord[2], false);  // step-5
 
-        //edit by Yuan 07/22/2020 add
-         EquationData::g_perm = data_interpolation.value(P_quadrature_coord[0],P_quadrature_coord[1],P_quadrature_coord[2]);
-        
+       EquationData::g_perm = data_interpolation.value(P_quadrature_coord[0],P_quadrature_coord[1],P_quadrature_coord[2]);
+
 
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           const Tensor<1, dim> grad_phi_i_P = fe_values.shape_grad(i, q);
@@ -320,22 +308,20 @@ void CoupledTH<dim>::assemble_P_system() {
             P_local_mass_matrix(i, j) +=
                 (phi_i_P * phi_j_P * fe_values.JxW(q));
             P_local_stiffness_matrix(i, j) +=
-                 (time_step * EquationData::g_perm * EquationData::g_B_w *
-                  grad_phi_i_P * grad_phi_j_P * fe_values.JxW(q));
-
+                (time_step * EquationData::g_perm * EquationData::g_B_w *
+                 grad_phi_i_P * grad_phi_j_P * fe_values.JxW(q));
           }
-             P_local_rhs(i) += (time_step * phi_i_P * P_source_values[q] +
-                              time_step * grad_phi_i_P * (Point<dim>(0, 0, 1)) *
-                                  (-EquationData::g_B_w * EquationData::g_perm *
-                                   EquationData::g_P_grad) +
-                              phi_i_P * old_P_sol_values[q]) *
-                             fe_values.JxW(q);
-
+          P_local_rhs(i) += (time_step * phi_i_P * P_source_values[q] +
+                             time_step * grad_phi_i_P * (Point<dim>(0, 0, 1)) *
+                                 (-EquationData::g_B_w * EquationData::g_perm *
+                                  EquationData::g_P_grad) +
+                             phi_i_P * old_P_sol_values[q]) *
+                            fe_values.JxW(q);
         }
       }
 
       // APPLIED NEWMAN BOUNDARY CONDITION
-      for (int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id; bd_i++) {
+      for (int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id; ++bd_i) {
         for (unsigned int face_no = 0;
              face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
           if (cell->at_boundary(face_no) &&
@@ -353,8 +339,11 @@ void CoupledTH<dim>::assemble_P_system() {
 
               const auto P_face_quadrature_coord =
                   fe_face_values.quadrature_point(q);
+              // EquationData::g_perm =
+              //     interpolate1d(EquationData::g_perm_list,
+              //                   P_face_quadrature_coord[2], false);  // step-5
+              EquationData::g_perm = data_interpolation.value(P_face_quadrature_coord[0],P_face_quadrature_coord[1],P_face_quadrature_coord[2]);
 
-               EquationData::g_perm = data_interpolation.value(P_face_quadrature_coord[0],P_face_quadrature_coord[1],P_face_quadrature_coord[2]);
 
               for (unsigned int i = 0; i < dofs_per_cell; ++i) {
                 P_local_rhs(i) += -time_step * EquationData::g_B_w *
@@ -395,7 +384,7 @@ void CoupledTH<dim>::assemble_P_system() {
   // // ADD DIRICLET BOUNDARY
   {
 
-    for (int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; bd_i++) {
+    for (int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; ++bd_i) {
 
       P_boundary.set_time(time);
       P_boundary.set_boundary_id(*(EquationData::g_P_bnd_id + bd_i));
@@ -427,11 +416,10 @@ void CoupledTH<dim>::assemble_T_system() {
   T_system_rhs = 0;
   T_solution = 0;
 
-
   QGauss<dim> quadrature_formula(degree + 1);
   QGauss<dim - 1> face_quadrature_formula(degree + 1);
 
-  // Getting values
+  // Getting fe values
   FEValues<dim> fe_values(fe, quadrature_formula,
                             update_values | update_gradients |
                                 update_quadrature_points | update_JxW_values);
@@ -441,7 +429,8 @@ void CoupledTH<dim>::assemble_T_system() {
                                          update_quadrature_points |
                                          update_JxW_values);
 
-  const unsigned int dofs_per_cell = fe.dofs_per_cell; 
+  // define loop number
+  const unsigned int dofs_per_cell = fe.dofs_per_cell;
   const unsigned int n_q_points = quadrature_formula.size();
   const unsigned int n_face_q_points = face_quadrature_formula.size();
 
@@ -495,11 +484,10 @@ void CoupledTH<dim>::assemble_T_system() {
       // loop for q_point ASSMBLING CELL METRIX (weak form equation writing)
       for (unsigned int q = 0; q < n_q_points; ++q) {
         const auto T_quadrature_coord = fe_values.quadrature_point(q);
-        //edit by Yuan 07/22/2020 delete
         // EquationData::g_perm = interpolate1d(
         //     EquationData::g_perm_list, T_quadrature_coord[2], false);  // step-5
-        //edit by Yuan 07/22/2020 add
         EquationData::g_perm = data_interpolation.value(T_quadrature_coord[0], T_quadrature_coord[1], T_quadrature_coord[2]);
+
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           const Tensor<1, dim> grad_phi_i_T = fe_values.shape_grad(i, q);
           const double phi_i_T = fe_values.shape_value(i, q);
@@ -527,7 +515,7 @@ void CoupledTH<dim>::assemble_T_system() {
       }
 
       // APPLIED NEUMAN BOUNDARY CONDITION
-      for (int bd_i = 0; bd_i < EquationData::g_num_QT_bnd_id; bd_i++) {
+      for (int bd_i = 0; bd_i < EquationData::g_num_QT_bnd_id; ++bd_i) {
         for (unsigned int face_no = 0;
              face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
           if (cell->at_boundary(face_no) &&
@@ -545,11 +533,9 @@ void CoupledTH<dim>::assemble_T_system() {
 
               const auto T_face_quadrature_coord =
                   fe_face_values.quadrature_point(q);
-              //edit by Yuan 07/22/2020 delete
               // EquationData::g_perm =
               //     interpolate1d(EquationData::g_perm_list,
               //                   T_face_quadrature_coord[2], false);  // step-5
-              //edit by Yuan 07/22/2020 add
               EquationData::g_perm = data_interpolation.value(T_face_quadrature_coord[0], T_face_quadrature_coord[1], T_face_quadrature_coord[2]);
 
               for (unsigned int i = 0; i < dofs_per_cell; ++i) {
@@ -586,7 +572,7 @@ void CoupledTH<dim>::assemble_T_system() {
   // ADD DIRICHLET BOUNDARY
   {
 
-    for (int bd_i = 0; bd_i < EquationData::g_num_T_bnd_id; bd_i++) {
+    for (int bd_i = 0; bd_i < EquationData::g_num_T_bnd_id; ++bd_i) {
 
       T_boundary.set_time(time);
       T_boundary.set_boundary_id(*(EquationData::g_T_bnd_id + bd_i));
@@ -620,6 +606,8 @@ void CoupledTH<dim>::linear_solve_P() {
                          // matrix block from which we can compute an ILU.
   cg.solve(P_system_matrix, P_solution, P_system_rhs,
            preconditioner);  // solve eq
+
+  old_P_solution = P_solution;
   P_iteration_namber = solver_control.last_step();
 
   pcout << "\nCG iterations: " << P_iteration_namber << std::endl;
@@ -632,7 +620,7 @@ void CoupledTH<dim>::linear_solve_T() {
   cbgeo::Clock timer;
   timer.tick();
   SolverControl solver_control(
-      std::max<std::size_t>(n_T_max_iteration, T_system_rhs.size() / 10),
+      std::max<std::size_t>(n_T_max_iteration, T_system_rhs.size()),
       T_tol_residual * T_system_rhs.l2_norm());  // setting for solver
   PETScWrappers::SolverGMRES solver(solver_control,
                                     mpi_communicator);  // config solver
@@ -641,9 +629,11 @@ void CoupledTH<dim>::linear_solve_T() {
   solver.solve(T_system_matrix, T_solution, T_system_rhs,
                preconditioner);  // solve eq
 
+  old_T_solution = T_solution;
+
   T_iteration_namber = solver_control.last_step();
 
-  pcout << " \n Iterations required for convergence:    " << T_iteration_namber
+  pcout << "\nIterations required for convergence:    " << T_iteration_namber
         << "\n";
 
   // constraints.distribute(solution);  // make sure if the value is
@@ -703,9 +693,7 @@ void CoupledTH<dim>::run() {
   double initial_time_step;
   double theta;
 
-  make_grid();
-
-  setup_system();
+  make_grid_and_dofs();
 
   pcout << "   Number of degrees of freedom: " << dof_handler.n_dofs()
         << " (by partition:";
@@ -740,13 +728,9 @@ void CoupledTH<dim>::run() {
 
       linear_solve_P();
 
-      old_P_solution = P_solution;
-
       assemble_T_system();
 
       linear_solve_T();
-
-      old_T_solution = T_solution;
 
       time += time_step;
 
@@ -769,11 +753,11 @@ void CoupledTH<dim>::run() {
     pcout << "\n" << std::endl << std::endl;
 
     // MatrixOut matrix_out;
-    // std::ofstream out ("2rhs_matrix_at_"+std::to_string(time));
-    // // matrix_out.build_patches (system_matrix, "system_matrix");
-    // // matrix_out.write_gnuplot (out);
-    // // system_matrix.print_formatted(out);
-    // system_rhs.print(out);
+    // std::ofstream out_T_matrix ("/outputfiles/2rhs_T_matrix_at_"+std::to_string(time));
+    // matrix_out.build_patches (T_system_matrix, "T_system_matrix");
+    // matrix_out.write_gnuplot (out_T_matrix);
+    // T_system_matrix.print_formatted(out_T_matrix);
+    // T_system_rhs.print(out);
 
   } while (time < period);
 }
