@@ -16,17 +16,18 @@
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/utilities.h>
 
+#include <deal.II/distributed/shared_tria.h>
 #include <deal.II/lac/block_sparsity_pattern.h>
 #include <deal.II/lac/constraint_matrix.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/full_matrix.h>
+#include <deal.II/lac/matrix_out.h>
 #include <deal.II/lac/precondition.h>
 #include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/solver_gmres.h>
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/sparsity_tools.h>
 #include <deal.II/lac/vector.h>
-#include <deal.II/lac/matrix_out.h>
 
 // MPI support):
 #include <deal.II/lac/petsc_parallel_sparse_matrix.h>
@@ -61,7 +62,6 @@
 #include <deal.II/numerics/solution_transfer.h>
 #include <deal.II/numerics/vector_tools.h>
 
-
 #include "interpolation.h"
 
 using namespace dealii;
@@ -74,36 +74,34 @@ class CoupledTH {
   void run();
 
  private:
-  void make_grid_and_dofs();
+  void make_grid();
+  void setup_system();
   void assemble_T_system();
   void assemble_P_system();
   void linear_solve_P();
   void linear_solve_T();
-  void output_results(PETScWrappers::MPI::Vector&, std::string) const;
+  void output_results(Vector<double>&, std::string) const;
 
-  MPI_Comm mpi_communicator;
+  parallel::shared::Triangulation<dim> triangulation;  // grid
+  DoFHandler<dim> dof_handler;                         // grid<->eleemnt
+  FE_Q<dim> fe;                                        // element type
+  QGauss<dim> quadrature_formula;
+  QGauss<dim - 1> face_quadrature_formula;
 
-  const unsigned int n_mpi_processes;
-  const unsigned int this_mpi_process;
-  ConditionalOStream pcout;
-
-  Triangulation<dim> triangulation;  // grid
-  DoFHandler<dim> dof_handler;       // grid<->eleemnt
-  FE_Q<dim> fe;  // element type
   const unsigned int degree;  // element degree
 
   // ConstraintMatrix constraints;  // hanging node
   PETScWrappers::MPI::SparseMatrix P_system_matrix;  // M_P + K_P
   PETScWrappers::MPI::SparseMatrix T_system_matrix;  // M_T + K_T
+  PETScWrappers::MPI::Vector P_system_rhs;           // right hand side of P
+                                                     // system
+  PETScWrappers::MPI::Vector T_system_rhs;           // right hand side of T
+                                                     // system
 
-  PETScWrappers::MPI::Vector P_solution;      // P solution at n
-  PETScWrappers::MPI::Vector T_solution;      // T solution at n
-  PETScWrappers::MPI::Vector old_P_solution;  // P solution at n-1
-  PETScWrappers::MPI::Vector old_T_solution;  // T solution at n-1
-  PETScWrappers::MPI::Vector P_system_rhs;    // right hand side of P
-                                              // system
-  PETScWrappers::MPI::Vector T_system_rhs;    // right hand side of T
-                                              // system
+  Vector<double> P_solution;      // P solution at n
+  Vector<double> T_solution;      // T solution at n
+  Vector<double> old_P_solution;  // P solution at n-1
+  Vector<double> old_T_solution;  // T solution at n-1
 
   double time;                   // t
   unsigned int timestep_number;  // n_t
@@ -121,25 +119,36 @@ class CoupledTH {
   double T_tol_residual = EquationData::g_T_tol_residual;
 
   Interpolation<3> data_interpolation;
+
+  MPI_Comm mpi_communicator;
+  const unsigned int n_mpi_processes;
+  const unsigned int this_mpi_process;
+  ConditionalOStream pcout;
+
+  IndexSet locally_owned_dofs;
+  IndexSet locally_relevant_dofs;
 };
 
 template <int dim>
 CoupledTH<dim>::CoupledTH(const unsigned int degree)  // initialization
-    : mpi_communicator(MPI_COMM_WORLD),
-      n_mpi_processes(Utilities::MPI::n_mpi_processes(mpi_communicator)),
-      this_mpi_process(Utilities::MPI::this_mpi_process(mpi_communicator)),
-      pcout(std::cout,
-            (this_mpi_process == 0)),  // output the results at process 0
+    : triangulation(MPI_COMM_WORLD),
       dof_handler(triangulation),
-      degree(degree),
       fe(degree),
-
+      degree(degree),
+      quadrature_formula(degree + 1),
+      face_quadrature_formula(degree + 1),
       time(0.0),
       timestep_number(0),
       T_iteration_namber(0),
       P_iteration_namber(0),
-      data_interpolation(EquationData::dimension_x,EquationData::dimension_y,EquationData::dimension_z,EquationData::file_name_interpolation)
- {
+      mpi_communicator(MPI_COMM_WORLD),
+      n_mpi_processes(Utilities::MPI::n_mpi_processes(mpi_communicator)),
+      this_mpi_process(Utilities::MPI::this_mpi_process(mpi_communicator)),
+      pcout(std::cout,
+            (this_mpi_process == 0)),  // output the results at process 0
+      data_interpolation(EquationData::dimension_x, EquationData::dimension_y,
+                         EquationData::dimension_z,
+                         EquationData::file_name_interpolation) {
   if (EquationData::is_linspace) {
     period = EquationData::g_period;
     n_time_step = EquationData::g_n_time_step;
@@ -159,22 +168,22 @@ CoupledTH<dim>::~CoupledTH() {
 }
 
 template <int dim>
-void CoupledTH<dim>::make_grid_and_dofs() {
+void CoupledTH<dim>::make_grid() {
 
-  cbgeo::Clock timer;
-  timer.tick();
   GridIn<dim> gridin;  // instantiate a gridinput
   gridin.attach_triangulation(triangulation);
   std::ifstream f("inputfiles/mesh.msh");
   gridin.read_msh(f);
-
   // print_mesh_info(triangulation, "outputfiles/grid-1.eps");
+  // triangulation.refine_global(1);
+}
 
-  GridTools::partition_triangulation(n_mpi_processes,
-                                     triangulation);  // partition triangulation
+template <int dim>
+void CoupledTH<dim>::setup_system() {
 
   dof_handler.distribute_dofs(fe);  // distribute dofs to grid globle
-  DoFRenumbering::subdomain_wise(dof_handler);  // mapping from globle to local
+  locally_owned_dofs = dof_handler.locally_owned_dofs();
+  DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
 
   pcout << "Number of active cells: " << triangulation.n_active_cells()
         << " (on " << triangulation.n_levels() << " levels)" << std::endl
@@ -183,31 +192,24 @@ void CoupledTH<dim>::make_grid_and_dofs() {
         << std::endl
         << std::endl;
 
-  // sparsity pattern
-  DynamicSparsityPattern dsp(dof_handler.n_dofs());  // sparsity
+  DynamicSparsityPattern dsp(locally_relevant_dofs);
   DoFTools::make_sparsity_pattern(dof_handler, dsp);
-
-  // generate local owned dof
-  const std::vector<IndexSet> locally_owned_dofs_per_proc =
-      DoFTools::locally_owned_dofs_per_subdomain(dof_handler);
-  const IndexSet locally_owned_dofs =
-      locally_owned_dofs_per_proc[this_mpi_process];
+  SparsityTools::distribute_sparsity_pattern(
+      dsp, locally_owned_dofs, mpi_communicator, locally_relevant_dofs);
 
   // forming system matrixes and initialize these matrixesy
   T_system_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp,
                          mpi_communicator);
   T_system_rhs.reinit(locally_owned_dofs, mpi_communicator);
-  T_solution.reinit(locally_owned_dofs, mpi_communicator);
-  old_T_solution.reinit(locally_owned_dofs, mpi_communicator);
+  T_solution.reinit(dof_handler.n_dofs());
+  old_T_solution.reinit(dof_handler.n_dofs());
 
   // forming system matrixes and initialize these matrixes
   P_system_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp,
                          mpi_communicator);
   P_system_rhs.reinit(locally_owned_dofs, mpi_communicator);
-  P_solution.reinit(locally_owned_dofs, mpi_communicator);
-  old_P_solution.reinit(locally_owned_dofs, mpi_communicator);
-
-  timer.tock("Grid_and_dofs");
+  P_solution.reinit(dof_handler.n_dofs());
+  old_P_solution.reinit(dof_handler.n_dofs());
 }
 
 template <int dim>
@@ -220,22 +222,17 @@ void CoupledTH<dim>::assemble_P_system() {
   P_system_rhs = 0;
   P_solution = 0;
 
-  QGauss<dim> quadrature_formula(degree + 1);
-  QGauss<dim - 1> face_quadrature_formula(degree + 1);
-
   // Getting fe values
-
   FEValues<dim> fe_values(fe, quadrature_formula,
-                            update_values | update_gradients |
-                                update_quadrature_points | update_JxW_values);
+                          update_values | update_gradients |
+                              update_quadrature_points | update_JxW_values);
 
   FEFaceValues<dim> fe_face_values(fe, face_quadrature_formula,
-                                     update_values | update_normal_vectors |
-                                         update_quadrature_points |
-                                         update_JxW_values);
+                                   update_values | update_normal_vectors |
+                                       update_quadrature_points |
+                                       update_JxW_values);
 
-
-  // define loop number 
+  // define loop number
   const unsigned int dofs_per_cell = fe.dofs_per_cell;
   const unsigned int n_q_points = quadrature_formula.size();
   const unsigned int n_face_q_points = face_quadrature_formula.size();
@@ -268,9 +265,9 @@ void CoupledTH<dim>::assemble_P_system() {
                                                      dof_handler.begin_active(),
                                                  endc = dof_handler.end();
   for (; cell != endc; ++cell) {
-    if (cell->subdomain_id() ==
-        this_mpi_process) {  // only assemble the system on cells that acturally
-                             // belong to this MPI process
+    if (cell->is_locally_owned()) {  // only assemble the system on cells that
+                                     // acturally
+                                     // belong to this MPI process
       // initialization
       P_local_mass_matrix = 0;
       P_local_stiffness_matrix = 0;
@@ -294,10 +291,12 @@ void CoupledTH<dim>::assemble_P_system() {
 
         const auto P_quadrature_coord = fe_values.quadrature_point(q);
         // EquationData::g_perm = interpolate1d(
-        //     EquationData::g_perm_list, P_quadrature_coord[2], false);  // step-5
+        //     EquationData::g_perm_list, P_quadrature_coord[2], false);  //
+        //     step-5
 
-       EquationData::g_perm = data_interpolation.value(P_quadrature_coord[0],P_quadrature_coord[1],P_quadrature_coord[2]);
-
+        EquationData::g_perm = data_interpolation.value(P_quadrature_coord[0],
+                                                        P_quadrature_coord[1],
+                                                        P_quadrature_coord[2]);
 
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           const Tensor<1, dim> grad_phi_i_P = fe_values.shape_grad(i, q);
@@ -305,8 +304,7 @@ void CoupledTH<dim>::assemble_P_system() {
           for (unsigned int j = 0; j < dofs_per_cell; ++j) {
             const Tensor<1, dim> grad_phi_j_P = fe_values.shape_grad(j, q);
             const double phi_j_P = fe_values.shape_value(j, q);
-            P_local_mass_matrix(i, j) +=
-                (phi_i_P * phi_j_P * fe_values.JxW(q));
+            P_local_mass_matrix(i, j) += (phi_i_P * phi_j_P * fe_values.JxW(q));
             P_local_stiffness_matrix(i, j) +=
                 (time_step * EquationData::g_perm * EquationData::g_B_w *
                  grad_phi_i_P * grad_phi_j_P * fe_values.JxW(q));
@@ -341,9 +339,11 @@ void CoupledTH<dim>::assemble_P_system() {
                   fe_face_values.quadrature_point(q);
               // EquationData::g_perm =
               //     interpolate1d(EquationData::g_perm_list,
-              //                   P_face_quadrature_coord[2], false);  // step-5
-              EquationData::g_perm = data_interpolation.value(P_face_quadrature_coord[0],P_face_quadrature_coord[1],P_face_quadrature_coord[2]);
-
+              //                   P_face_quadrature_coord[2], false);  //
+              //                   step-5
+              EquationData::g_perm = data_interpolation.value(
+                  P_face_quadrature_coord[0], P_face_quadrature_coord[1],
+                  P_face_quadrature_coord[2]);
 
               for (unsigned int i = 0; i < dofs_per_cell; ++i) {
                 P_local_rhs(i) += -time_step * EquationData::g_B_w *
@@ -371,13 +371,6 @@ void CoupledTH<dim>::assemble_P_system() {
     }
   }
 
-  // compress matrix his means that each process sends the additions that were
-  // made to those entries of the matrix and vector that the process did not own
-  // itself to the process that owns them.fter receiving these additions from
-  // other processes, each process then adds them to the values it already has.
-  // These additions are combining the integral contributions of shape functions
-  // living on several cells just as in a serial computation, with the
-  // difference that the cells are assigned to different processes.
   P_system_matrix.compress(VectorOperation::add);
   P_system_rhs.compress(VectorOperation::add);
 
@@ -391,17 +384,11 @@ void CoupledTH<dim>::assemble_P_system() {
       std::map<types::global_dof_index, double> P_bd_values;
       VectorTools::interpolate_boundary_values(
           dof_handler, *(EquationData::g_P_bnd_id + bd_i), P_boundary,
-          P_bd_values);  // i表示边界的index
-      MatrixTools::apply_boundary_values(
-          P_bd_values, P_system_matrix, P_solution, P_system_rhs,
-          false);  // The reason why we may not want to make the matrix
-                   // symmetric is because this would require us to write into
-                   // column entries that actually reside on other processes,
-                   // i.e., it involves communicating data. This is always
-                   // expensive. Experience tells us that CG also works (and
-                   // works almost as well) if we don't remove the columns
-                   // associated with boundary nodes, which can be explained by
-                   // the special structure of this particular non-symmetry.
+          P_bd_values);  // i is boundary index
+      PETScWrappers::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
+      MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, tmp,
+                                         P_system_rhs, false);
+      P_solution = tmp;
     }
   }
   timer.tock("assemble_P_system");
@@ -416,18 +403,15 @@ void CoupledTH<dim>::assemble_T_system() {
   T_system_rhs = 0;
   T_solution = 0;
 
-  QGauss<dim> quadrature_formula(degree + 1);
-  QGauss<dim - 1> face_quadrature_formula(degree + 1);
-
   // Getting fe values
   FEValues<dim> fe_values(fe, quadrature_formula,
-                            update_values | update_gradients |
-                                update_quadrature_points | update_JxW_values);
+                          update_values | update_gradients |
+                              update_quadrature_points | update_JxW_values);
 
   FEFaceValues<dim> fe_face_values(fe, face_quadrature_formula,
-                                     update_values | update_normal_vectors |
-                                         update_quadrature_points |
-                                         update_JxW_values);
+                                   update_values | update_normal_vectors |
+                                       update_quadrature_points |
+                                       update_JxW_values);
 
   // define loop number
   const unsigned int dofs_per_cell = fe.dofs_per_cell;
@@ -449,8 +433,7 @@ void CoupledTH<dim>::assemble_T_system() {
   //  local element matrix
   FullMatrix<double> T_local_mass_matrix(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> T_local_stiffness_matrix(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> T_local_convection_matrix(dofs_per_cell,
-                                               dofs_per_cell);
+  FullMatrix<double> T_local_convection_matrix(dofs_per_cell, dofs_per_cell);
   Vector<double> T_local_rhs(dofs_per_cell);
   std::vector<types::global_dof_index> T_local_dof_indices(dofs_per_cell);
 
@@ -464,7 +447,7 @@ void CoupledTH<dim>::assemble_T_system() {
                                                      dof_handler.begin_active(),
                                                  endc = dof_handler.end();
   for (; cell != endc; ++cell) {
-    if (cell->subdomain_id() == this_mpi_process) {
+    if (cell->is_locally_owned()) {
       // initialization
       T_local_mass_matrix = 0;
       T_local_stiffness_matrix = 0;
@@ -485,8 +468,11 @@ void CoupledTH<dim>::assemble_T_system() {
       for (unsigned int q = 0; q < n_q_points; ++q) {
         const auto T_quadrature_coord = fe_values.quadrature_point(q);
         // EquationData::g_perm = interpolate1d(
-        //     EquationData::g_perm_list, T_quadrature_coord[2], false);  // step-5
-        EquationData::g_perm = data_interpolation.value(T_quadrature_coord[0], T_quadrature_coord[1], T_quadrature_coord[2]);
+        //     EquationData::g_perm_list, T_quadrature_coord[2], false);  //
+        //     step-5
+        EquationData::g_perm = data_interpolation.value(T_quadrature_coord[0],
+                                                        T_quadrature_coord[1],
+                                                        T_quadrature_coord[2]);
 
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           const Tensor<1, dim> grad_phi_i_T = fe_values.shape_grad(i, q);
@@ -494,8 +480,7 @@ void CoupledTH<dim>::assemble_T_system() {
           for (unsigned int j = 0; j < dofs_per_cell; ++j) {
             const Tensor<1, dim> grad_phi_j_T = fe_values.shape_grad(j, q);
             const double phi_j_T = fe_values.shape_value(j, q);
-            T_local_mass_matrix(i, j) +=
-                (phi_i_T * phi_j_T * fe_values.JxW(q));
+            T_local_mass_matrix(i, j) += (phi_i_T * phi_j_T * fe_values.JxW(q));
             T_local_stiffness_matrix(i, j) +=
                 time_step * (EquationData::g_lam / EquationData::g_c_T *
                              grad_phi_i_T * grad_phi_j_T * fe_values.JxW(q));
@@ -535,8 +520,11 @@ void CoupledTH<dim>::assemble_T_system() {
                   fe_face_values.quadrature_point(q);
               // EquationData::g_perm =
               //     interpolate1d(EquationData::g_perm_list,
-              //                   T_face_quadrature_coord[2], false);  // step-5
-              EquationData::g_perm = data_interpolation.value(T_face_quadrature_coord[0], T_face_quadrature_coord[1], T_face_quadrature_coord[2]);
+              //                   T_face_quadrature_coord[2], false);  //
+              //                   step-5
+              EquationData::g_perm = data_interpolation.value(
+                  T_face_quadrature_coord[0], T_face_quadrature_coord[1],
+                  T_face_quadrature_coord[2]);
 
               for (unsigned int i = 0; i < dofs_per_cell; ++i) {
                 T_local_rhs(i) += -time_step / EquationData::g_c_T *
@@ -572,16 +560,18 @@ void CoupledTH<dim>::assemble_T_system() {
   // ADD DIRICHLET BOUNDARY
   {
 
-    for (int bd_i = 0; bd_i < EquationData::g_num_T_bnd_id; ++bd_i) {
+    for (int bd_i = 0; bd_i < EquationData::g_num_T_bnd_id; bd_i++) {
 
       T_boundary.set_time(time);
       T_boundary.set_boundary_id(*(EquationData::g_T_bnd_id + bd_i));
       std::map<types::global_dof_index, double> T_bd_values;
       VectorTools::interpolate_boundary_values(
           dof_handler, *(EquationData::g_T_bnd_id + bd_i), T_boundary,
-          T_bd_values);  // i表示边界的index
-      MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix,
-                                         T_solution, T_system_rhs, false);
+          T_bd_values);  // i is boundary index
+      PETScWrappers::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
+      MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, tmp,
+                                         T_system_rhs, false);
+      T_solution = tmp;
     }
   }
 
@@ -592,25 +582,26 @@ template <int dim>
 void CoupledTH<dim>::linear_solve_P() {
   cbgeo::Clock timer;
   timer.tick();
+
+  PETScWrappers::MPI::Vector distributed_P_solution(locally_owned_dofs,
+                                                    mpi_communicator);
+  distributed_P_solution = P_solution;
   SolverControl solver_control(
-      P_solution.size(),
+      dof_handler.n_dofs(),
       P_tol_residual * P_system_rhs.l2_norm());  // setting for cg
   PETScWrappers::SolverCG cg(solver_control, mpi_communicator);  // config cg
-  PETScWrappers::PreconditionBlockJacobi preconditioner(
-      P_system_matrix);  // use a block Jacobi preconditioner which works by
-                         // computing an incomplete LU decomposition on each
-                         // diagonal block of the matrix. (In other words, each
-                         // MPI process computes an ILU from the rows it stores
-                         // by throwing away columns that correspond to row
-                         // indices not stored locally; this yields a square
-                         // matrix block from which we can compute an ILU.
-  cg.solve(P_system_matrix, P_solution, P_system_rhs,
+  PETScWrappers::PreconditionBlockJacobi preconditioner(P_system_matrix);
+  cg.solve(P_system_matrix, distributed_P_solution, P_system_rhs,
            preconditioner);  // solve eq
 
-  old_P_solution = P_solution;
   P_iteration_namber = solver_control.last_step();
 
-  pcout << "\nCG iterations: " << P_iteration_namber << std::endl;
+  P_solution = distributed_P_solution;
+
+  old_P_solution = distributed_P_solution;
+
+  pcout << "\n\nIterations required for convergence: " << P_iteration_namber
+        << "\n";
 
   timer.tock("linear_solve_P");
 }
@@ -619,25 +610,30 @@ template <int dim>
 void CoupledTH<dim>::linear_solve_T() {
   cbgeo::Clock timer;
   timer.tick();
+  PETScWrappers::MPI::Vector distributed_T_solution(locally_owned_dofs,
+                                                    mpi_communicator);
+  distributed_T_solution = T_solution;
+
   SolverControl solver_control(
       std::max<std::size_t>(n_T_max_iteration, T_system_rhs.size()),
       T_tol_residual * T_system_rhs.l2_norm());  // setting for solver
+
   PETScWrappers::SolverGMRES solver(solver_control,
                                     mpi_communicator);  // config solver
+
   PETScWrappers::PreconditionJacobi preconditioner(T_system_matrix);  // precond
   // preconditioner.initialize(T_system_matrix, 1.0);      // initialize precond
-  solver.solve(T_system_matrix, T_solution, T_system_rhs,
+  solver.solve(T_system_matrix, distributed_T_solution, T_system_rhs,
                preconditioner);  // solve eq
 
-  old_T_solution = T_solution;
+  T_solution = distributed_T_solution;
+
+  old_T_solution = distributed_T_solution;
 
   T_iteration_namber = solver_control.last_step();
 
-  pcout << "\nIterations required for convergence:    " << T_iteration_namber
+  pcout << " \nIterations required for convergence:    " << T_iteration_namber
         << "\n";
-
-  // constraints.distribute(solution);  // make sure if the value is
-  // consistent at the constraint point
 
   timer.tock("linear_solve_T");
 }
@@ -646,43 +642,48 @@ void CoupledTH<dim>::linear_solve_T() {
 //
 // Neither is there anything new in generating graphical output:
 template <int dim>
-void CoupledTH<dim>::output_results(PETScWrappers::MPI::Vector& solution,
+void CoupledTH<dim>::output_results(Vector<double>& solution,
                                     std::string var_name) const {
 
-  const Vector<double> localized_solution(solution);
+  DataOut<dim> data_out;
+
+  data_out.attach_dof_handler(dof_handler);
+
+  data_out.add_data_vector(solution, var_name);
+
+  std::vector<types::subdomain_id> partition_int(
+      triangulation.n_active_cells());
+
+  GridTools::get_subdomain_association(triangulation, partition_int);
+
+  const Vector<double> partitioning(partition_int.begin(), partition_int.end());
+
+  data_out.add_data_vector(partitioning, "partitioning");
+
+  data_out.build_patches();
+
+  const std::string filename =
+      var_name + "-solution-" + Utilities::int_to_string(timestep_number, 3);
+
+  const std::string pvtu_master_filename = data_out.write_vtu_with_pvtu_record(
+      "outputfiles/", filename, timestep_number, mpi_communicator);
+
+  // In a parallel setting, several files are typically written per time step. 
+  // The number of files written in parallel depends on the number of MPI processes 
+  // (see parameter mpi_communicator), and a specified number of n_groups with 
+  // default value 0. The background is that VTU file output supports grouping files 
+  // from several CPUs into a given number of files using MPI I/O when writing 
+  // on a parallel filesystem. The default value of n_groups is 0, meaning that 
+  // every MPI rank will write one file. A value of 1 will generate one big file 
+  // containing the solution over the whole domain, while a larger value will create 
+  // n_groups files (but not more than there are MPI ranks).
 
   if (this_mpi_process == 0) {
-    const std::string filename = "outputfiles/" + var_name + "-solution-" +
-                                 Utilities::int_to_string(timestep_number, 3) +
-                                 ".vtk";
-    std::ofstream output(filename.c_str());
-
-    DataOut<dim> data_out;
-    data_out.attach_dof_handler(dof_handler);
-    data_out.add_data_vector(localized_solution, var_name);
-
-    // The only other thing we do here is that we also output one
-    // value per cell indicating which subdomain (i.e., MPI
-    // process) it belongs to. This requires some conversion work,
-    // since the data the library provides us with is not the one
-    // the output class expects, but this is not difficult. First,
-    // set up a vector of integers, one per cell, that is then
-    // filled by the subdomain id of each cell.
-    //
-    // The elements of this vector are then converted to a
-    // floating point vector in a second step, and this vector is
-    // added to the DataOut object, which then goes off creating
-    // output in VTK format:
-    std::vector<unsigned int> partition_int(triangulation.n_active_cells());
-    GridTools::get_subdomain_association(triangulation, partition_int);
-
-    const Vector<double> partitioning(partition_int.begin(),
-                                      partition_int.end());
-
-    data_out.add_data_vector(partitioning, "partitioning");
-
-    data_out.build_patches();
-    data_out.write_vtk(output);
+    static std::vector<std::pair<double, std::string>> times_and_names;
+    times_and_names.push_back(
+        std::pair<double, std::string>(time, pvtu_master_filename));
+    std::ofstream pvd_output("outputfiles/"+ var_name + "_solution.pvd");
+    DataOutBase::write_pvd_record(pvd_output, times_and_names);
   }
 }
 
@@ -693,15 +694,23 @@ void CoupledTH<dim>::run() {
   double initial_time_step;
   double theta;
 
-  make_grid_and_dofs();
+  make_grid();
 
-  pcout << "   Number of degrees of freedom: " << dof_handler.n_dofs()
+  pcout << "    Number of active cells:       "
+        << triangulation.n_active_cells() << " (by partition:";
+  for (unsigned int p = 0; p < n_mpi_processes; ++p)
+    pcout << (p == 0 ? ' ' : '+')
+          << (GridTools::count_cells_with_subdomain_association(triangulation,
+                                                                p));
+  pcout << ")" << std::endl;
+
+  setup_system();
+
+  pcout << "    Number of degrees of freedom: " << dof_handler.n_dofs()
         << " (by partition:";
-  for (unsigned int process = 0; process < n_mpi_processes; ++process) {
-    pcout << (process == 0 ? ' ' : '+')
-          << (DoFTools::count_dofs_with_subdomain_association(dof_handler,
-                                                              process));
-  }
+  for (unsigned int p = 0; p < n_mpi_processes; ++p)
+    pcout << (p == 0 ? ' ' : '+')
+          << (DoFTools::count_dofs_with_subdomain_association(dof_handler, p));
   pcout << ")" << std::endl;
 
   VectorTools::interpolate(dof_handler,
@@ -741,19 +750,23 @@ void CoupledTH<dim>::run() {
         time_step = time_step / 2;
         ++binary_search_number;
       }
-
-      pcout << "\nt=" << time << ", dt=" << time_step << '.' << std::endl;
+      pcout << "   \n Solver converged in " << binary_search_number
+            << " iterations." << std::endl;
 
     } while ((1 - theta) > 0.00001);
 
-    timestep_number += 1;
+    pcout << "\nt=" << time << ", dt=" << time_step << '.' << std::endl;
+
     output_results(T_solution, "T");
     output_results(P_solution, "P");
 
     pcout << "\n" << std::endl << std::endl;
 
+    timestep_number += 1;
+
     // MatrixOut matrix_out;
-    // std::ofstream out_T_matrix ("/outputfiles/2rhs_T_matrix_at_"+std::to_string(time));
+    // std::ofstream out_T_matrix
+    // ("/outputfiles/2rhs_T_matrix_at_"+std::to_string(time));
     // matrix_out.build_patches (T_system_matrix, "T_system_matrix");
     // matrix_out.write_gnuplot (out_T_matrix);
     // T_system_matrix.print_formatted(out_T_matrix);
