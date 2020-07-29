@@ -668,21 +668,22 @@ void CoupledTH<dim>::output_results(Vector<double>& solution,
   const std::string pvtu_master_filename = data_out.write_vtu_with_pvtu_record(
       "outputfiles/", filename, timestep_number, mpi_communicator);
 
-  // In a parallel setting, several files are typically written per time step. 
-  // The number of files written in parallel depends on the number of MPI processes 
-  // (see parameter mpi_communicator), and a specified number of n_groups with 
-  // default value 0. The background is that VTU file output supports grouping files 
-  // from several CPUs into a given number of files using MPI I/O when writing 
-  // on a parallel filesystem. The default value of n_groups is 0, meaning that 
-  // every MPI rank will write one file. A value of 1 will generate one big file 
-  // containing the solution over the whole domain, while a larger value will create 
-  // n_groups files (but not more than there are MPI ranks).
+  // In a parallel setting, several files are typically written per time step.
+  // The number of files written in parallel depends on the number of MPI
+  // processes (see parameter mpi_communicator), and a specified number of
+  // n_groups with default value 0. The background is that VTU file output
+  // supports grouping files from several CPUs into a given number of files
+  // using MPI I/O when writing on a parallel filesystem. The default value of
+  // n_groups is 0, meaning that every MPI rank will write one file. A value of
+  // 1 will generate one big file containing the solution over the whole domain,
+  // while a larger value will create n_groups files (but not more than there
+  // are MPI ranks).
 
   if (this_mpi_process == 0) {
     static std::vector<std::pair<double, std::string>> times_and_names;
     times_and_names.push_back(
         std::pair<double, std::string>(time, pvtu_master_filename));
-    std::ofstream pvd_output("outputfiles/"+ var_name + "_solution.pvd");
+    std::ofstream pvd_output("outputfiles/" + var_name + "_solution.pvd");
     DataOutBase::write_pvd_record(pvd_output, times_and_names);
   }
 }

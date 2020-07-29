@@ -6,7 +6,6 @@
 #include "csv.h"
 #include <vector>
 
-
 namespace EquationData {
 
 double g_perm = 1e-6 / 1000 / 9.8;  // permeability
@@ -14,7 +13,6 @@ const double g_c_T = 1.2e6;         // heat capacity of the mixture
 const double g_lam = 1.2;           // heat conductivity
 const double g_c_w = 1e6;           // heat capacity of water
 const double g_B_w = 1e5;           // bulk modulus of pores
-
 
 // Pressure seetings
 const int g_num_P_bnd_id = 5;  // numbers of  pressure boudnary condition id
@@ -58,13 +56,15 @@ const unsigned int n_g_T_max_iteration = 4000;
 const double g_P_tol_residual = 1e-8;
 const double g_T_tol_residual = 1e-8;
 
-//dimention of the input data file (parameters_for_interpolation.txt in inputfiles is used in the example)
-const int dimension=3;
-//dimension in x, y and z directions
-std::string file_name_interpolation="inputfiles/parameters_for_interpolation.txt";
+// dimention of the input data file (parameters_for_interpolation.txt in
+// inputfiles is used in the example)
+const int dimension = 3;
+// dimension in x, y and z directions
+std::string file_name_interpolation =
+    "inputfiles/parameters_for_interpolation.txt";
 // number of sample point in x directin, y direction and z direction
-const int dimension_x=2;
-const int dimension_y=2;
-const int dimension_z=7;
+const int dimension_x = 2;
+const int dimension_y = 2;
+const int dimension_z = 7;
 
 }  // namespace EquationData
