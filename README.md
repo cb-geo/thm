@@ -68,10 +68,10 @@ wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-5.1.0.tar.gz && \
 module load boost
 
 # Clone and compile dealii
-cd $HOME
+cds
 git clone https://github.com/dealii/dealii --depth=1 dealii-src
 cd dealii-src/ && mkdir build &&  cd build
-cmake -DCMAKE_INSTALL_PREFIX=$HOME/dealii -DPETSC_DIR=$PETSC_DIR -DPETSC_ARCH=clx -DDEAL_II_WITH_PETSC=On  -DDEAL_II_WITH_METIS=On -DMETIS_DIR=$HOME/metis/ -DDEAL_II_WITH_MPI=On ..
+cmake -DCMAKE_INSTALL_PREFIX=$SCRATCH/dealii -DPETSC_DIR=$PETSC_DIR -DPETSC_ARCH=clx -DDEAL_II_WITH_PETSC=On  -DDEAL_II_WITH_METIS=On -DMETIS_DIR=$HOME/metis/ -DDEAL_II_WITH_MPI=On ..
 make install -j4
 
 
@@ -81,7 +81,7 @@ git clone https://github.com/cb-geo/thm
 cd thm
 git checkout thm_seg_parallel
 mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Release -DDEAL_II_DIR=$HOME/dealii/ ..
+cmake -DCMAKE_BUILD_TYPE=Release -DDEAL_II_DIR=$SCRATCH/dealii/ ..
 make -j
 ```
 
