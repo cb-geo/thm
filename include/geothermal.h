@@ -794,4 +794,7 @@ void CoupledTH<dim>::run() {
     // T_system_rhs.print(out);
 
   } while (time < period);
+
+  timer.tock("solve_all");
+  pcout << "\n" << std::endl << std::endl;
 }
