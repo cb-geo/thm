@@ -40,6 +40,8 @@ Please refer to [CB-Geo thm Documentation](https://cb-geo.github.io/thm-doc) for
 #login TACC
 ssh taccuserid@ls5.tacc.utexas.edu
 
+nano ~/.bashrc
+# Write the following commands into the .bashrc file
 module load impi-largemem
 export CC=icc
 export CXX=icpc
