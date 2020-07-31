@@ -172,7 +172,7 @@ void CoupledTH<dim>::make_grid() {
 
   GridIn<dim> gridin;  // instantiate a gridinput
   gridin.attach_triangulation(triangulation);
-  std::ifstream f("inputfiles/mesh.msh");
+  std::ifstream f("inputfiles/timesh.msh");
   gridin.read_msh(f);
   // print_mesh_info(triangulation, "outputfiles/grid-1.eps");
   // triangulation.refine_global(1);
@@ -691,6 +691,10 @@ void CoupledTH<dim>::output_results(Vector<double>& solution,
 template <int dim>
 void CoupledTH<dim>::run() {
 
+  cbgeo::Clock timer;
+  timer.tick();
+  
+  
   unsigned int binary_search_number;
   double initial_time_step;
   double theta;
@@ -774,4 +778,9 @@ void CoupledTH<dim>::run() {
     // T_system_rhs.print(out);
 
   } while (time < period);
+
+
+  timer.tock("solve_all");
+  pcout << "\n" << std::endl << std::endl;
+
 }
