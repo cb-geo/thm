@@ -9,7 +9,9 @@
 
 int main(int argc, char** argv) {
   double seconds;
-  // get_parameter("inputfiles/parameters.csv", EquationData::g_perm_list, 1);
+
+  // 1d interp
+  get_parameter("inputfiles/parameters.csv", EquationData::g_perm_list, 1);
 
   if (EquationData::time_unit == 'd') {
     seconds = 86400;
