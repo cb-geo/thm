@@ -297,9 +297,11 @@ void CoupledTH<dim>::assemble_P_system() {
         EquationData::g_perm = data_interpolation.value(P_quadrature_coord[0],
                                                         P_quadrature_coord[1],
                                                         P_quadrature_coord[2]);
-        
-        // pcout<<"\n"<<"at point"<<"("<<P_quadrature_coord[0]<<","<<P_quadrature_coord[1]
-        // <<","<<P_quadrature_coord[2]<<"), the permeability is "<<EquationData::g_perm<<"\n";
+
+        // pcout<<"\n"<<"at
+        // point"<<"("<<P_quadrature_coord[0]<<","<<P_quadrature_coord[1]
+        // <<","<<P_quadrature_coord[2]<<"), the permeability is
+        // "<<EquationData::g_perm<<"\n";
 
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           const Tensor<1, dim> grad_phi_i_P = fe_values.shape_grad(i, q);
@@ -592,7 +594,8 @@ void CoupledTH<dim>::linear_solve_P() {
   SolverControl solver_control(
       dof_handler.n_dofs(),
       P_tol_residual * P_system_rhs.l2_norm());  // setting for cg
-  // pcout<< "\n the l1 norm of the P_system is"<< P_system_matrix.l1_norm() << "\n";
+  // pcout<< "\n the l1 norm of the P_system is"<< P_system_matrix.l1_norm() <<
+  // "\n";
 
   PETScWrappers::SolverCG cg(solver_control, mpi_communicator);  // config cg
   PETScWrappers::PreconditionBlockJacobi preconditioner(P_system_matrix);
@@ -622,7 +625,8 @@ void CoupledTH<dim>::linear_solve_T() {
   SolverControl solver_control(
       std::max<std::size_t>(n_T_max_iteration, T_system_rhs.size()),
       T_tol_residual * T_system_rhs.l2_norm());  // setting for solver
-  // pcout<< "\n the l1 norm of the T_system is"<< T_system_matrix.l1_norm() << "\n";
+  // pcout<< "\n the l1 norm of the T_system is"<< T_system_matrix.l1_norm() <<
+  // "\n";
   PETScWrappers::SolverGMRES solver(solver_control,
                                     mpi_communicator);  // config solver
 
