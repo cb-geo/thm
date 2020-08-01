@@ -15,8 +15,8 @@ const double g_c_w = 1e6;           // heat capacity of water
 const double g_B_w = 1e5;           // bulk modulus of pores
 
 // 1d interp
-std::vector<std::vector<double>> g_perm_list = {
-    {0, 0}};  // permeablity list used for interpolation
+// std::vector<std::vector<double>> g_perm_list = {
+//     {0, 0}};  // permeablity list used for interpolation
 
 
 // Pressure seetings
