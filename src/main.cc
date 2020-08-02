@@ -4,7 +4,6 @@
 #include "globalvariables.h"
 #include "initialvalues.h"
 #include "sourceterm.h"
-
 #include "geothermal.h"
 //edit
 //#include "interpolation.h"
