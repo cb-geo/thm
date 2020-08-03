@@ -123,7 +123,7 @@ double TemperatureDirichletBoundaryValues<dim>::value(
   // } else if (boundary_id_ == 5) {
   //   return g_Tb_top + g_T_grad * (0. - p[2]);
   // }
-  if (bd_i_ < 800) {
+  if (bd_i_ < 1) {
     return g_Tb_well;
   } else  {
     return g_Tb_top + g_T_grad * (0. - p[2]);
