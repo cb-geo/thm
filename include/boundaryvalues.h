@@ -16,13 +16,14 @@ class PressureDirichletBoundaryValues : public Function<dim> {
  private:
   const double period_;  // value
   int boundary_id_{-1};
+  int bd_i_;
 
  public:
   PressureDirichletBoundaryValues()
-      : Function<dim>(), period_(0.2) {}  // 之前的没有
+      : Function<dim>(), period_(0.2), bd_i_(0) {}  // 之前的没有
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
-
+  virtual void get_bd_i(int bd_i) {bd_i_ = bd_i;}
   // virtual void vector_value(const Point<dim>& p,  //放在这里没啥用
   //                           Vector<double>& value) const;
   virtual void set_boundary_id(int bnd_id) { boundary_id_ = bnd_id; }
@@ -44,10 +45,11 @@ double PressureDirichletBoundaryValues<dim>::value(
   // } else if (boundary_id_ == 5) {
   //   return g_Pb_top + g_P_grad * (0. - p[2]);
   // }
-  if (std::find(g_P_bnd_id, g_P_bnd_id + g_num_P_bnd_id, boundary_id_) !=
-      g_P_bnd_id + g_num_P_bnd_id) {
-    return g_Pb_top + g_P_grad * (0. - p[2]);
-  }
+  // if (std::find(g_P_bnd_id, g_P_bnd_id + g_num_P_bnd_id, boundary_id_) !=
+  //     g_P_bnd_id + g_num_P_bnd_id) {
+  //   return g_Pb_top + g_P_grad * (0. - p[2]);
+  // }
+  return g_Pb_top + g_P_grad * (0. - p[2]);
 }
 
 template <int dim>
@@ -55,13 +57,15 @@ class PressureNeumanBoundaryValues : public Function<dim> {
  private:
   const double period_;  // value
   int boundary_id_{-1};
+  int bd_i_;
 
  public:
   PressureNeumanBoundaryValues()
-      : Function<dim>(), period_(0.2) {}  // 之前的没有
+      : Function<dim>(), period_(0.2) ,bd_i_(0){}  // 之前的没有
+  virtual void get_bd_i(int bd_i) {bd_i_ = bd_i;};
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
-
+  
   // virtual void vector_value(const Point<dim>& p,  //放在这里没啥用
   //                           Vector<double>& value) const;
   virtual void set_boundary_id(int bnd_id) { boundary_id_ = bnd_id; }
@@ -75,10 +79,11 @@ double PressureNeumanBoundaryValues<dim>::value(
   // Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
   // Assert(dim == 3, ExcNotImplemented());
   double time = this->get_time();  // get time
-  if (std::find(g_QP_bnd_id, g_QP_bnd_id + g_num_QP_bnd_id, boundary_id_) !=
-      g_QP_bnd_id + g_num_QP_bnd_id)  {
-    return g_Qb_lateral;
-  }
+  // if (std::find(g_QP_bnd_id, g_QP_bnd_id + g_num_QP_bnd_id, boundary_id_) !=
+  //     g_QP_bnd_id + g_num_QP_bnd_id)  {
+  //   return g_Qb_lateral;
+  // }
+  return g_Qb_lateral;
 }
 
 template <int dim>
@@ -86,10 +91,12 @@ class TemperatureDirichletBoundaryValues : public Function<dim> {
  private:
   const double period_;  // value
   int boundary_id_{-1};
+  int bd_i_;
 
  public:
   TemperatureDirichletBoundaryValues()
-      : Function<dim>(), period_(0.2) {}  // 之前的没有
+      : Function<dim>(), period_(0.2), bd_i_(0) {}  // 之前的没有
+  virtual void get_bd_i(int bd_i) {bd_i_ = bd_i;};
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
   // virtual void vector_value(const Point<dim>& p,  //放在这里没啥用
@@ -116,11 +123,9 @@ double TemperatureDirichletBoundaryValues<dim>::value(
   // } else if (boundary_id_ == 5) {
   //   return g_Tb_top + g_T_grad * (0. - p[2]);
   // }
-  if (std::find(g_T_bnd_id, g_T_bnd_id + 800, boundary_id_) !=
-      g_T_bnd_id + 800) {
+  if (bd_i_ < 800) {
     return g_Tb_well;
-  } else if (std::find( g_T_bnd_id + 801, g_T_bnd_id + g_num_T_bnd_id, boundary_id_) !=
-      g_T_bnd_id + g_num_T_bnd_id) {
+  } else  {
     return g_Tb_top + g_T_grad * (0. - p[2]);
   }
 }
@@ -138,10 +143,12 @@ class TemperatureNeumanBoundaryValues : public Function<dim> {
  private:
   const double period;  // value
   int boundary_id_{-1};
+  int bd_i_;
 
  public:
   TemperatureNeumanBoundaryValues()
-      : Function<dim>(), period(0.2) {}  // 之前的没有
+      : Function<dim>(), period(0.2), bd_i_(0) {}  // 之前的没有
+  virtual void get_bd_i(int bd_i) {bd_i_ = bd_i;};
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
   // virtual void vector_value(const Point<dim>& p,  //放在这里没啥用
@@ -158,12 +165,11 @@ double TemperatureNeumanBoundaryValues<dim>::value(
   // Assert(dim == 3, ExcNotImplemented());
 
   const double time = this->get_time();
-  if (std::find(g_QT_bnd_id, g_QT_bnd_id + 3, boundary_id_) !=
-      g_QT_bnd_id + 3) {
+  if (bd_i_<3) {
     return g_QT_top;  
                        // this case
-  } else if (std::find(g_QT_bnd_id + 4, g_QT_bnd_id + g_num_QT_bnd_id, boundary_id_) !=
-      g_QT_bnd_id + g_num_QT_bnd_id) {
+  } 
+  else {
     return g_QT_bottom;
   } 
 }
