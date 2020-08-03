@@ -543,6 +543,7 @@ void CoupledTH<dim>::assemble_T_system() {
           }
         }
       }
+
       // local ->globe
       cell->get_dof_indices(T_local_dof_indices);
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
@@ -561,10 +562,13 @@ void CoupledTH<dim>::assemble_T_system() {
     }
   }
 
+  timer.tock("assemble_T_system_no_DIRICHLET_boundary");
   // compress the matrix
   T_system_matrix.compress(VectorOperation::add);
   T_system_rhs.compress(VectorOperation::add);
+  
 
+  timer.tick();
   // ADD DIRICHLET BOUNDARY
   {
 
