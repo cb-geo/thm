@@ -568,10 +568,10 @@ void CoupledTH<dim>::assemble_T_system() {
   T_system_rhs.compress(VectorOperation::add);
   
 
-  timer.tick();
+
   // ADD DIRICHLET BOUNDARY
   {
-
+    timer.tick();
     for (int bd_i = 0; bd_i < EquationData::g_num_T_bnd_id; bd_i++) {
       T_boundary.get_bd_i(bd_i);
       T_boundary.set_time(time);
