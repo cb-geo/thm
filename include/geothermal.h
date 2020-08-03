@@ -583,17 +583,17 @@ void CoupledTH<dim>::assemble_T_system() {
       VectorTools::interpolate_boundary_values(
           dof_handler, *(EquationData::g_T_bnd_id + bd_i), T_boundary,
           T_bd_values);  // i is boundary index
-      if (bd_i < 2){timer.tick("interpolate");}
+      if (bd_i < 2){timer.tock("interpolate");}
       if (bd_i < 2){timer.tick();}
       PETScWrappers::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
-      if (bd_i < 2){timer.tick("build_tmp");}
+      if (bd_i < 2){timer.tock("build_tmp");}
       if (bd_i < 2){timer.tick();}
       MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, tmp,
                                          T_system_rhs, false);
-      if (bd_i < 2){timer.tick("apply_boundary_values");}
+      if (bd_i < 2){timer.tock("apply_boundary_values");}
       if (bd_i < 2){timer.tick();}
       T_solution = tmp;
-      if (bd_i < 2){timer.tick("T_solution = tmp");}
+      if (bd_i < 2){timer.tock("T_solution = tmp");}
       
     }
   }
