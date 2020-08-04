@@ -326,11 +326,12 @@ void CoupledTH<dim>::assemble_P_system() {
       }
 
       // APPLIED NEWMAN BOUNDARY CONDITION
-      for (int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id; ++bd_i) {
-        for (unsigned int face_no = 0;
+      for (unsigned int face_no = 0;
              face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
-          if (cell->at_boundary(face_no) &&
-              cell->face(face_no)->boundary_id() ==
+          if (cell->at_boundary(face_no)) {
+          for (int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id; ++bd_i) {
+        
+          if (cell->face(face_no)->boundary_id() ==
                   EquationData::g_QP_bnd_id[bd_i]) {
             fe_face_values.reinit(cell, face_no);
 
@@ -362,6 +363,7 @@ void CoupledTH<dim>::assemble_P_system() {
               }
             }
           }
+          }
         }
       }
 
@@ -389,6 +391,7 @@ void CoupledTH<dim>::assemble_P_system() {
 
     for (int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; ++bd_i) {
 
+      P_boundary.get_bd_i(bd_i);
       P_boundary.set_time(time);
       P_boundary.set_boundary_id(*(EquationData::g_P_bnd_id + bd_i));
       std::map<types::global_dof_index, double> P_bd_values;
@@ -513,11 +516,12 @@ void CoupledTH<dim>::assemble_T_system() {
       }
 
       // APPLIED NEUMAN BOUNDARY CONDITION
-      for (int bd_i = 0; bd_i < EquationData::g_num_QT_bnd_id; ++bd_i) {
-        for (unsigned int face_no = 0;
+      
+      for (unsigned int face_no = 0;
              face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
-          if (cell->at_boundary(face_no) &&
-              cell->face(face_no)->boundary_id() ==
+        if (cell->at_boundary(face_no)){
+            for (int bd_i = 0; bd_i < EquationData::g_num_QT_bnd_id; ++bd_i) {
+            if(cell->face(face_no)->boundary_id() ==
                   EquationData::g_QT_bnd_id[bd_i]) {
             fe_face_values.reinit(cell, face_no);
 
@@ -549,6 +553,7 @@ void CoupledTH<dim>::assemble_T_system() {
               }
             }
           }
+          }
         }
       }
       // local ->globe
@@ -577,7 +582,7 @@ void CoupledTH<dim>::assemble_T_system() {
   {
 
     for (int bd_i = 0; bd_i < EquationData::g_num_T_bnd_id; bd_i++) {
-
+      T_boundary.get_bd_i(bd_i);
       T_boundary.set_time(time);
       T_boundary.set_boundary_id(*(EquationData::g_T_bnd_id + bd_i));
       std::map<types::global_dof_index, double> T_bd_values;

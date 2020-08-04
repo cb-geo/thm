@@ -17,13 +17,14 @@ class PressureDirichletBoundaryValues : public Function<dim> {
  private:
   const double period_;  // value
   int boundary_id_{-1};
+  int bd_i_;
 
  public:
   PressureDirichletBoundaryValues()
-      : Function<dim>(), period_(0.2) {}  // 之前的没有
+      : Function<dim>(), period_(0.2), bd_i_(0)  {}  // 之前的没有
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
-
+  virtual void get_bd_i(int bd_i) {bd_i_ = bd_i;}
   // virtual void vector_value(const Point<dim>& p,  //放在这里没啥用
   //                           Vector<double>& value) const;
   virtual void set_boundary_id(int bnd_id) { boundary_id_ = bnd_id; }
@@ -56,10 +57,12 @@ class TemperatureDirichletBoundaryValues : public Function<dim> {
  private:
   const double period_;  // value
   int boundary_id_{-1};
+  int bd_i_;
 
  public:
   TemperatureDirichletBoundaryValues()
-      : Function<dim>(), period_(0.2) {}  // 之前的没有
+      : Function<dim>(), period_(0.2) ,bd_i_(0){}  // 之前的没有
+  virtual void get_bd_i(int bd_i) {bd_i_ = bd_i;}
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
   // virtual void vector_value(const Point<dim>& p,  //放在这里没啥用
@@ -106,10 +109,12 @@ class PressureNeumanBoundaryValues : public Function<dim> {
  private:
   const double period_;  // value
   int boundary_id_{-1};
+  int bd_i_;
 
  public:
   PressureNeumanBoundaryValues()
-      : Function<dim>(), period_(0.2) {}  // 之前的没有
+      : Function<dim>(), period_(0.2), bd_i_(0){}  // 之前的没有
+  virtual void get_bd_i(int bd_i) {bd_i_ = bd_i;}
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
 
@@ -136,10 +141,12 @@ class TemperatureNeumanBoundaryValues : public Function<dim> {
  private:
   const double period;  // value
   int boundary_id_{-1};
+  int bd_i_;
 
  public:
   TemperatureNeumanBoundaryValues()
-      : Function<dim>(), period(0.2) {}  // 之前的没有
+      : Function<dim>(), period(0.2), bd_i_(0)  {}  // 之前的没有
+  virtual void get_bd_i(int bd_i) {bd_i_ = bd_i;}
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
   // virtual void vector_value(const Point<dim>& p,  //放在这里没啥用
