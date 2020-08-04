@@ -180,7 +180,7 @@ void CoupledTH<dim>::make_grid() {
 
 template <int dim>
 void CoupledTH<dim>::setup_system() {
-
+  timer.tick();
   dof_handler.distribute_dofs(fe);  // distribute dofs to grid globle
   locally_owned_dofs = dof_handler.locally_owned_dofs();
   DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
@@ -210,6 +210,7 @@ void CoupledTH<dim>::setup_system() {
   P_system_rhs.reinit(locally_owned_dofs, mpi_communicator);
   P_solution.reinit(dof_handler.n_dofs());
   old_P_solution.reinit(dof_handler.n_dofs());
+  timer.tock("dof_handler");
 }
 
 template <int dim>
