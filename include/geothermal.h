@@ -180,6 +180,7 @@ void CoupledTH<dim>::make_grid() {
 
 template <int dim>
 void CoupledTH<dim>::setup_system() {
+  cbgeo::Clock timer;
   timer.tick();
   dof_handler.distribute_dofs(fe);  // distribute dofs to grid globle
   locally_owned_dofs = dof_handler.locally_owned_dofs();
