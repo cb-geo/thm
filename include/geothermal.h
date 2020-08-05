@@ -215,6 +215,13 @@ void CoupledTH<dim>::make_grid_and_dofs() {
         << dof_handler.n_dofs() << '+' << dof_handler.n_dofs() << ')'
         << std::endl
         << std::endl;
+  
+  old_P_locally_relevant_solution.reinit(locally_owned_dofs,
+                                     locally_relevant_dofs,
+                                     mpi_communicator);
+  old_T_locally_relevant_solution.reinit(locally_owned_dofs,
+                                     locally_relevant_dofs,
+                                     mpi_communicator);
 
 }
 
@@ -222,10 +229,6 @@ template <int dim>
 void CoupledTH<dim>::setup_P_system() {
 
   P_locally_relevant_solution.reinit(locally_owned_dofs,
-                                     locally_relevant_dofs,
-                                     mpi_communicator);
-
-  old_P_locally_relevant_solution.reinit(locally_owned_dofs,
                                      locally_relevant_dofs,
                                      mpi_communicator);
   
@@ -264,10 +267,6 @@ template <int dim>
 void CoupledTH<dim>::setup_T_system() {
 
   T_locally_relevant_solution.reinit(locally_owned_dofs,
-                                     locally_relevant_dofs,
-                                     mpi_communicator);
-
-  old_T_locally_relevant_solution.reinit(locally_owned_dofs,
                                      locally_relevant_dofs,
                                      mpi_communicator);
   
@@ -843,8 +842,10 @@ void CoupledTH<dim>::run() {
     pcout << (p == 0 ? ' ' : '+')
           << (DoFTools::count_dofs_with_subdomain_association(dof_handler, p));
   pcout << ")" << std::endl;
+
   setup_P_system();
   setup_T_system();
+
   VectorTools::interpolate(dof_handler,
                            EquationData::TemperatureInitialValues<dim>(),
                            old_T_locally_relevant_solution);
@@ -855,9 +856,6 @@ void CoupledTH<dim>::run() {
   output_results(old_P_locally_relevant_solution, "P");
 
   do {
-
-    setup_P_system();
-    setup_T_system();
 
     pcout << "\nTimestep " << timestep_number;
 
@@ -900,6 +898,8 @@ void CoupledTH<dim>::run() {
 
     timestep_number += 1;
 
+    setup_P_system();
+    setup_T_system();
     // MatrixOut matrix_out;
     // std::ofstream out_T_matrix
     // ("/outputfiles/2rhs_T_matrix_at_"+std::to_string(time));
