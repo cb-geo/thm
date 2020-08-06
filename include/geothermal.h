@@ -101,9 +101,16 @@ class CoupledTH {
   void assemble_T_system();
   void linear_solve_P();
   void linear_solve_T();
-  void output_results(Vector<double>&, std::string) const;
+  void output_results(LA::MPI::Vector& , std::string) const;
+
+  MPI_Comm mpi_communicator;
+  const unsigned int n_mpi_processes;
+  const unsigned int this_mpi_process;
+  ConditionalOStream pcout;
+  TimerOutput        computing_timer;
 
   parallel::distributed::Triangulation<dim> triangulation;  // grid
+
   DoFHandler<dim> dof_handler;                         // grid<->eleemnt
   FE_Q<dim> fe;                                        // element type
   QGauss<dim> quadrature_formula;
@@ -148,15 +155,14 @@ class CoupledTH {
 
   Interpolation<3> data_interpolation;
 
-  MPI_Comm mpi_communicator;
-  const unsigned int n_mpi_processes;
-  const unsigned int this_mpi_process;
-  ConditionalOStream pcout;
 };
 
 template <int dim>
 CoupledTH<dim>::CoupledTH(const unsigned int degree)  // initialization
-    : triangulation(MPI_COMM_WORLD),
+    : mpi_communicator(MPI_COMM_WORLD),
+      n_mpi_processes(Utilities::MPI::n_mpi_processes(mpi_communicator)),
+      this_mpi_process(Utilities::MPI::this_mpi_process(mpi_communicator)),
+      triangulation(mpi_communicator),
       dof_handler(triangulation),
       fe(degree),
       degree(degree),
@@ -166,12 +172,9 @@ CoupledTH<dim>::CoupledTH(const unsigned int degree)  // initialization
       timestep_number(0),
       P_iteration_namber(0),
       T_iteration_namber(0),
-      mpi_communicator(MPI_COMM_WORLD),
-      n_mpi_processes(Utilities::MPI::n_mpi_processes(mpi_communicator)),
-      this_mpi_process(Utilities::MPI::this_mpi_process(mpi_communicator)),
       pcout(std::cout,
-            (this_mpi_process == 0)),  // output the results at process 0
-      , computing_timer(mpi_communicator,
+            (Utilities::MPI::this_mpi_process(mpi_communicator) == 0)),
+      computing_timer(mpi_communicator,
                       pcout,
                       TimerOutput::summary,
                       TimerOutput::wall_times),
@@ -342,8 +345,7 @@ void CoupledTH<dim>::assemble_P_system() {
   std::vector<double> QP_bd_values(n_face_q_points);
 
   //  local element matrix
-  FullMatrix<double> P_cell_mass_matrix(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> P_cell_stiffness_matrix(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> P_cell_matrix(dofs_per_cell, dofs_per_cell);
   Vector<double> P_cell_rhs(dofs_per_cell);
   std::vector<types::global_dof_index> P_local_dof_indices(dofs_per_cell);
 
@@ -360,8 +362,7 @@ void CoupledTH<dim>::assemble_P_system() {
                                      // acturally
                                      // belong to this MPI process
       // initialization
-      P_cell_mass_matrix = 0;
-      P_cell_stiffness_matrix = 0;
+      P_cell_matrix = 0;
       P_cell_rhs = 0;
       fe_values.reinit(cell);
 
@@ -402,8 +403,10 @@ void CoupledTH<dim>::assemble_P_system() {
           for (unsigned int j = 0; j < dofs_per_cell; ++j) {
             const Tensor<1, dim> grad_phi_j_P = fe_values.shape_grad(j, q);
             const double phi_j_P = fe_values.shape_value(j, q);
-            P_cell_mass_matrix(i, j) += (phi_i_P * phi_j_P * fe_values.JxW(q));
-            P_cell_stiffness_matrix(i, j) +=
+            // mass matrix
+            P_cell_matrix(i, j) += (phi_i_P * phi_j_P * fe_values.JxW(q));
+            // stiff matrix
+            P_cell_matrix(i, j) +=
                 (time_step * EquationData::g_perm * EquationData::g_B_w *
                  grad_phi_i_P * grad_phi_j_P * fe_values.JxW(q));
           }
@@ -464,15 +467,15 @@ void CoupledTH<dim>::assemble_P_system() {
       // for (unsigned int i = 0; i < dofs_per_cell; ++i) {
       //   for (unsigned int j = 0; j < dofs_per_cell; ++j) {
       //     P_system_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
-      //                         P_cell_mass_matrix(i, j));  // sys_mass matrix
+      //                         P_cell_matrix(i, j));  // sys_mass matrix
       //     P_system_matrix.add(
       //         P_local_dof_indices[i], P_local_dof_indices[j],
-      //         P_cell_stiffness_matrix(i, j));  // sys_stiff matrix
+      //         P_cell_matrix(i, j));  // sys_stiff matrix
       //   }
       //   P_system_rhs(P_local_dof_indices[i]) += P_cell_rhs(i);
       // }
 
-      P_constraints.distribute_local_to_global(P_cell_mass_matrix + P_cell_stiffness_matrix,
+      P_constraints.distribute_local_to_global(P_cell_matrix,
                                                  P_cell_rhs,
                                                  P_local_dof_indices,
                                                  P_system_matrix,
@@ -540,9 +543,7 @@ void CoupledTH<dim>::assemble_T_system() {
   std::vector<double> QT_bd_values(n_face_q_points);
 
   //  local element matrix
-  FullMatrix<double> T_cell_mass_matrix(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> T_cell_stiffness_matrix(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> T_cell_convection_matrix(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> T_cell_matrix(dofs_per_cell, dofs_per_cell);
   Vector<double> T_cell_rhs(dofs_per_cell);
   std::vector<types::global_dof_index> T_local_dof_indices(dofs_per_cell);
 
@@ -558,16 +559,14 @@ void CoupledTH<dim>::assemble_T_system() {
   for (; cell != endc; ++cell) {
     if (cell->is_locally_owned()) {
       // initialization
-      T_cell_mass_matrix = 0;
-      T_cell_stiffness_matrix = 0;
-      T_cell_convection_matrix = 0;
+      T_cell_matrix = 0;
       T_cell_rhs = 0;
       fe_values.reinit(cell);
       // get the values at gauss point
-      fe_values.get_function_values(old_T_solution, old_T_sol_values);
-      fe_values.get_function_gradients(old_T_solution, old_T_sol_grads);
-      fe_values.get_function_values(old_P_solution, old_P_sol_values);
-      fe_values.get_function_gradients(old_P_solution, old_P_sol_grads);
+      fe_values.get_function_values(old_T_locally_relevant_solution, old_T_sol_values);
+      fe_values.get_function_gradients(old_T_locally_relevant_solution, old_T_sol_grads);
+      fe_values.get_function_values(old_P_locally_relevant_solution, old_P_sol_values);
+      fe_values.get_function_gradients(old_P_locally_relevant_solution, old_P_sol_grads);
       // get right hand side
       T_source_term.set_time(time);
       T_source_term.value_list(fe_values.get_quadrature_points(),
@@ -592,11 +591,14 @@ void CoupledTH<dim>::assemble_T_system() {
           for (unsigned int j = 0; j < dofs_per_cell; ++j) {
             const Tensor<1, dim> grad_phi_j_T = fe_values.shape_grad(j, q);
             const double phi_j_T = fe_values.shape_value(j, q);
-            T_cell_mass_matrix(i, j) += (phi_i_T * phi_j_T * fe_values.JxW(q));
-            T_cell_stiffness_matrix(i, j) +=
+            // mass matrix
+            T_cell_matrix(i, j) += (phi_i_T * phi_j_T * fe_values.JxW(q));
+            // stiff matrix
+            T_cell_matrix(i, j) +=
                 time_step * (EquationData::g_lam / EquationData::g_c_T *
                              grad_phi_i_T * grad_phi_j_T * fe_values.JxW(q));
-            T_cell_convection_matrix(i, j) +=
+            // conv matrix
+            T_cell_matrix(i, j) +=
                 time_step * EquationData::g_c_w / EquationData::g_c_T *
                 phi_i_T *
                 (-EquationData::g_perm *
@@ -654,7 +656,7 @@ void CoupledTH<dim>::assemble_T_system() {
       }
       // local ->globe
       cell->get_dof_indices(T_local_dof_indices);
-      constraints.distribute_local_to_global(T_cell_mass_matrix + T_cell_stiffness_matrix + T_cell_convection_matrix,
+      T_constraints.distribute_local_to_global(T_cell_matrix,
                                                  T_cell_rhs,
                                                  T_local_dof_indices,
                                                  T_system_matrix,
@@ -664,13 +666,13 @@ void CoupledTH<dim>::assemble_T_system() {
       // for (unsigned int i = 0; i < dofs_per_cell; ++i) {
       //   for (unsigned int j = 0; j < dofs_per_cell; ++j) {
       //     T_system_matrix.add(T_local_dof_indices[i], T_local_dof_indices[j],
-      //                         T_cell_mass_matrix(i, j));  // mass_matrix
+      //                         T_cell_matrix(i, j));  // mass_matrix
       //     T_system_matrix.add(
       //         T_local_dof_indices[i], T_local_dof_indices[j],
-      //         T_cell_stiffness_matrix(i, j));  // striffness_matrix
+      //         T_cell_matrix(i, j));  // striffness_matrix
       //     T_system_matrix.add(
       //         T_local_dof_indices[i], T_local_dof_indices[j],
-      //         T_cell_convection_matrix(i, j));  // convection_matrix
+      //         T_cell_matrix(i, j));  // convection_matrix
       //   }
       //   T_system_rhs(T_local_dof_indices[i]) += T_cell_rhs(i);
       // }
@@ -717,8 +719,9 @@ void CoupledTH<dim>::linear_solve_P() {
   // "\n";
 
   LA::SolverCG cg(solver_control, mpi_communicator);  // config cg
+  LA::MPI::PreconditionAMG preconditioner;
   LA::MPI::PreconditionAMG::AdditionalData data;
-  ata.symmetric_operator = true;
+  data.symmetric_operator = true;
   preconditioner.initialize(P_system_matrix, data);
   cg.solve(P_system_matrix, distributed_P_solution, P_system_rhs,
            preconditioner);  // solve eq
@@ -726,9 +729,9 @@ void CoupledTH<dim>::linear_solve_P() {
   P_iteration_namber = solver_control.last_step();
 
   P_constraints.distribute(distributed_P_solution);
-  P_local_relevant_solution = distributed_P_solution;
+  P_locally_relevant_solution = distributed_P_solution;
 
-  old_P_local_relevant_solution = distributed_P_solution;
+  old_P_locally_relevant_solution = distributed_P_solution;
 
   pcout << "\nIterations required for convergence: " << P_iteration_namber
         << "\n";
@@ -750,8 +753,9 @@ void CoupledTH<dim>::linear_solve_T() {
   // "\n";
   LA::SolverGMRES solver(solver_control,
                                     mpi_communicator);  // config solver
+  LA::MPI::PreconditionAMG preconditioner;
   LA::MPI::PreconditionAMG::AdditionalData data;
-  ata.symmetric_operator = false;
+  data.symmetric_operator = false;
   preconditioner.initialize(T_system_matrix, data);
   
   // LA::PreconditionJacobi preconditioner(T_system_matrix);  // precond
@@ -760,9 +764,9 @@ void CoupledTH<dim>::linear_solve_T() {
                preconditioner);  // solve eq
 
   T_constraints.distribute(distributed_T_solution);
-  T_local_relevant_solution = distributed_T_solution;
+  T_locally_relevant_solution = distributed_T_solution;
 
-  old_T_local_relevant_solution = distributed_T_solution;
+  old_T_locally_relevant_solution = distributed_T_solution;
 
   T_iteration_namber = solver_control.last_step();
 
