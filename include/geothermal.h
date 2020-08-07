@@ -293,7 +293,7 @@ void CoupledTH<dim>::assemble_P_system() {
 
         // 1d interp
         // EquationData::g_perm = interpolate1d(
-        //     EquationData::g_perm_list, P_quadrature_coord[2], false);  
+        //     EquationData::g_perm_list, P_quadrature_coord[2], false);
 
         // 3d interp
         EquationData::g_perm = data_interpolation.value(P_quadrature_coord[0],
@@ -327,42 +327,45 @@ void CoupledTH<dim>::assemble_P_system() {
 
       // APPLIED NEWMAN BOUNDARY CONDITION
       for (unsigned int face_no = 0;
-             face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
-          if (cell->at_boundary(face_no)) {
-          for (int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id; ++bd_i) {
-        
-          if (cell->face(face_no)->boundary_id() ==
+           face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
+        if (cell->at_boundary(face_no)) {
+          if (EquationData::g_num_QP_bnd_id > 0) {
+            for (int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id; ++bd_i) {
+
+              if (cell->face(face_no)->boundary_id() ==
                   EquationData::g_QP_bnd_id[bd_i]) {
-            fe_face_values.reinit(cell, face_no);
+                fe_face_values.reinit(cell, face_no);
 
-            // get boundary condition
-            QP_boundary.set_time(time);
-            QP_boundary.set_boundary_id(*(EquationData::g_QP_bnd_id + bd_i));
-            QP_boundary.value_list(fe_face_values.get_quadrature_points(),
-                                   QP_bd_values);
+                // get boundary condition
+                QP_boundary.set_time(time);
+                QP_boundary.set_boundary_id(
+                    *(EquationData::g_QP_bnd_id + bd_i));
+                QP_boundary.value_list(fe_face_values.get_quadrature_points(),
+                                       QP_bd_values);
 
-            for (unsigned int q = 0; q < n_face_q_points; ++q) {
+                for (unsigned int q = 0; q < n_face_q_points; ++q) {
 
-              const auto P_face_quadrature_coord =
-                  fe_face_values.quadrature_point(q);
-              
-              // 1d interp
-              // EquationData::g_perm =
-              //     interpolate1d(EquationData::g_perm_list,
-              //                   P_face_quadrature_coord[2], false);  
+                  const auto P_face_quadrature_coord =
+                      fe_face_values.quadrature_point(q);
 
-              // 3d interp
-              EquationData::g_perm = data_interpolation.value(
-                  P_face_quadrature_coord[0], P_face_quadrature_coord[1],
-                  P_face_quadrature_coord[2]);
+                  // 1d interp
+                  // EquationData::g_perm =
+                  //     interpolate1d(EquationData::g_perm_list,
+                  //                   P_face_quadrature_coord[2], false);
 
-              for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-                P_local_rhs(i) += -time_step * EquationData::g_B_w *
-                                  (fe_face_values.shape_value(i, q) *
-                                   QP_bd_values[q] * fe_face_values.JxW(q));
+                  // 3d interp
+                  EquationData::g_perm = data_interpolation.value(
+                      P_face_quadrature_coord[0], P_face_quadrature_coord[1],
+                      P_face_quadrature_coord[2]);
+
+                  for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+                    P_local_rhs(i) += -time_step * EquationData::g_B_w *
+                                      (fe_face_values.shape_value(i, q) *
+                                       QP_bd_values[q] * fe_face_values.JxW(q));
+                  }
+                }
               }
             }
-          }
           }
         }
       }
@@ -480,10 +483,10 @@ void CoupledTH<dim>::assemble_T_system() {
       // loop for q_point ASSMBLING CELL METRIX (weak form equation writing)
       for (unsigned int q = 0; q < n_q_points; ++q) {
         const auto T_quadrature_coord = fe_values.quadrature_point(q);
-        
+
         // 1d interp
         // EquationData::g_perm = interpolate1d(
-        //     EquationData::g_perm_list, T_quadrature_coord[2], false);  
+        //     EquationData::g_perm_list, T_quadrature_coord[2], false);
 
         // 3d interp
         EquationData::g_perm = data_interpolation.value(T_quadrature_coord[0],
@@ -510,49 +513,49 @@ void CoupledTH<dim>::assemble_T_system() {
           }
 
           T_local_rhs(i) +=
-              (time_step * T_source_values[q] + old_T_sol_values[q]) * phi_i_T *
+              (time_step * T_source_values[q] + phi_i_T * old_T_sol_values[q]) *
               fe_values.JxW(q);
         }
       }
 
       // APPLIED NEUMAN BOUNDARY CONDITION
-      
+
       for (unsigned int face_no = 0;
-             face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
-        if (cell->at_boundary(face_no)){
-            for (int bd_i = 0; bd_i < EquationData::g_num_QT_bnd_id; ++bd_i) {
-            if(cell->face(face_no)->boundary_id() ==
-                  EquationData::g_QT_bnd_id[bd_i]) {
-            fe_face_values.reinit(cell, face_no);
+           face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
+        if (cell->at_boundary(face_no)) {
+          for (int bd_i = 0; bd_i < EquationData::g_num_QT_bnd_id; ++bd_i) {
+            if (cell->face(face_no)->boundary_id() ==
+                EquationData::g_QT_bnd_id[bd_i]) {
+              fe_face_values.reinit(cell, face_no);
 
-            // get boundary condition
-            QT_boundary.set_time(time);
-            QT_boundary.set_boundary_id(*(EquationData::g_QT_bnd_id + bd_i));
-            QT_boundary.value_list(fe_face_values.get_quadrature_points(),
-                                   QT_bd_values);
+              // get boundary condition
+              QT_boundary.set_time(time);
+              QT_boundary.set_boundary_id(*(EquationData::g_QT_bnd_id + bd_i));
+              QT_boundary.value_list(fe_face_values.get_quadrature_points(),
+                                     QT_bd_values);
 
-            for (unsigned int q = 0; q < n_face_q_points; ++q) {
+              for (unsigned int q = 0; q < n_face_q_points; ++q) {
 
-              const auto T_face_quadrature_coord =
-                  fe_face_values.quadrature_point(q);
-              
-              // 1d interp
-              // EquationData::g_perm =
-              //     interpolate1d(EquationData::g_perm_list,
-              //                   T_face_quadrature_coord[2], false); 
-                       
-              // 3d interp                       
-              EquationData::g_perm = data_interpolation.value(
-                  T_face_quadrature_coord[0], T_face_quadrature_coord[1],
-                  T_face_quadrature_coord[2]);
+                const auto T_face_quadrature_coord =
+                    fe_face_values.quadrature_point(q);
 
-              for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-                T_local_rhs(i) += -time_step / EquationData::g_c_T *
-                                  fe_face_values.shape_value(i, q) *
-                                  QT_bd_values[q] * fe_face_values.JxW(q);
+                // 1d interp
+                // EquationData::g_perm =
+                //     interpolate1d(EquationData::g_perm_list,
+                //                   T_face_quadrature_coord[2], false);
+
+                // 3d interp
+                EquationData::g_perm = data_interpolation.value(
+                    T_face_quadrature_coord[0], T_face_quadrature_coord[1],
+                    T_face_quadrature_coord[2]);
+
+                for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+                  T_local_rhs(i) += -time_step / EquationData::g_c_T *
+                                    fe_face_values.shape_value(i, q) *
+                                    QT_bd_values[q] * fe_face_values.JxW(q);
+                }
               }
             }
-          }
           }
         }
       }
@@ -717,7 +720,7 @@ template <int dim>
 void CoupledTH<dim>::run() {
   cbgeo::Clock timer;
   timer.tick();
-  
+
   unsigned int binary_search_number;
   double initial_time_step;
   double theta;

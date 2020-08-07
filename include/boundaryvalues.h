@@ -91,7 +91,8 @@ double TemperatureDirichletBoundaryValues<dim>::value(
   // }
   if (boundary_id_ == 4) {
     return g_Tb_well;
-  } else if (boundary_id_ == 3 || boundary_id_ == 8 || boundary_id_ == 12 ||
+  } 
+  if (boundary_id_ == 3 || boundary_id_ == 8 || boundary_id_ == 12 ||
              boundary_id_ == 13 || boundary_id_ == 14) {
     return g_Tb_top + g_T_grad * (0. - p[2]);
   }
@@ -166,9 +167,11 @@ double TemperatureNeumanBoundaryValues<dim>::value(
   if (boundary_id_ == 4) {
     return g_QT_well;  // boundary value is set to zero in
                        // this case
-  } else if (boundary_id_ == 3) {
+  } 
+  if (boundary_id_ == 8) {
     return g_QT_top;
-  } else if (boundary_id_ == 8) {
+  } 
+  if (boundary_id_ == 3) {
     return g_QT_bottom;
   }
 }

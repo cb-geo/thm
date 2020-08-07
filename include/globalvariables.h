@@ -18,7 +18,6 @@ const double g_B_w = 1e5;           // bulk modulus of pores
 // std::vector<std::vector<double>> g_perm_list = {
 //     {0, 0}};  // permeablity list used for interpolation
 
-
 // Pressure seetings
 const int g_num_P_bnd_id = 5;  // numbers of  pressure boudnary condition id
 const int g_P_bnd_id[g_num_P_bnd_id] = {3, 8, 12, 13,
@@ -33,9 +32,9 @@ const int g_QP_bnd_id[g_num_QP_bnd_id] = {4};  // velocity  boundary condition
 const double g_Qb_well = -0.001;               // wellbore temperature
 
 // Temperature seetings
-const int g_num_T_bnd_id = 4;  // numbers of  temperature boudnary condition id
+const int g_num_T_bnd_id = 6;  // numbers of  temperature boudnary condition id
 const int g_T_bnd_id[g_num_T_bnd_id] = {
-    4, 12, 13, 14};                  //  temperature boudnary condition id
+    4, 3, 8, 12, 13, 14};            //  temperature boudnary condition id
 const double g_Tb_well = 288.15;     // wellbore temperature
 const double g_Tb_top = 273.15 + 5;  // termperature at the top of model
 const double g_T_grad = 0.05;  // temperature gradient in verital direction
