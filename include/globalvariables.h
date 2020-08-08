@@ -19,31 +19,35 @@ const double g_B_w = 1e5;           // bulk modulus of pores
 //     {0, 0}};  // permeablity list used for interpolation
 
 // Pressure seetings
-const int g_num_P_bnd_id = 5;  // numbers of  pressure boudnary condition id
-const int g_P_bnd_id[g_num_P_bnd_id] = {3, 8, 12, 13,
-                                        14};  // pressure boundary condition id
-const double g_Pb_top = 0;                    // pressure at the top of model
+const unsigned int g_num_P_bnd_id =
+    5;  // numbers of  pressure boudnary condition id
+const unsigned int g_P_bnd_id[g_num_P_bnd_id] = {
+    3, 8, 12, 13, 14};               // pressure boundary condition id
+const double g_Pb_top = 0;           // pressure at the top of model
 const double g_P_grad = 1000 * 9.8;  // pressure gradient in vertial direction
 
 // Velocity settings
-const int g_num_QP_bnd_id = 1;  // numbers of velocity boudnary condition id
-const int g_QP_bnd_id[g_num_QP_bnd_id] = {4};  // velocity  boundary condition
-                                               // id
-const double g_Qb_well = -0.001;               // wellbore temperature
+const unsigned int g_num_QP_bnd_id =
+    1;  // numbers of velocity boudnary condition id
+const unsigned int g_QP_bnd_id[g_num_QP_bnd_id] = {4};  // velocity  boundary
+                                                        // condition id
+const double g_Qb_well = -0.001;                        // wellbore temperature
 
 // Temperature seetings
-const int g_num_T_bnd_id = 6;  // numbers of  temperature boudnary condition id
-const int g_T_bnd_id[g_num_T_bnd_id] = {
+const unsigned int g_num_T_bnd_id =
+    6;  // numbers of  temperature boudnary condition id
+const unsigned int g_T_bnd_id[g_num_T_bnd_id] = {
     4, 3, 8, 12, 13, 14};            //  temperature boudnary condition id
 const double g_Tb_well = 288.15;     // wellbore temperature
 const double g_Tb_top = 273.15 + 5;  // termperature at the top of model
 const double g_T_grad = 0.05;  // temperature gradient in verital direction
 
 // Heat flow rate settins
-const int g_num_QT_bnd_id = 2;  // numbers of velocity boudnary condition id
-const int g_QT_bnd_id[g_num_QT_bnd_id] = {3, 8};  // velocity  boundary
-                                                  // condition id
-const double g_QT_well = 0;                       // wellbore temperature
+const unsigned int g_num_QT_bnd_id =
+    2;  // numbers of velocity boudnary condition id
+const unsigned int g_QT_bnd_id[g_num_QT_bnd_id] = {3, 8};  // velocity  boundary
+                                                           // condition id
+const double g_QT_well = 0;  // wellbore temperature
 const double g_QT_top = -g_lam * g_T_grad;
 const double g_QT_bottom = g_lam * g_T_grad;
 

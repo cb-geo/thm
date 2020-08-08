@@ -84,10 +84,9 @@ class CoupledTH {
   parallel::shared::Triangulation<dim> triangulation;  // grid
   DoFHandler<dim> dof_handler;                         // grid<->eleemnt
   FE_Q<dim> fe;                                        // element type
+  const unsigned int degree;                           // element degree
   QGauss<dim> quadrature_formula;
   QGauss<dim - 1> face_quadrature_formula;
-
-  const unsigned int degree;  // element degree
 
   // ConstraintMatrix constraints;  // hanging node
   PETScWrappers::MPI::SparseMatrix P_system_matrix;  // M_P + K_P
@@ -117,12 +116,11 @@ class CoupledTH {
   double P_tol_residual = EquationData::g_P_tol_residual;
   double T_tol_residual = EquationData::g_T_tol_residual;
 
-  Interpolation<3> data_interpolation;
-
   MPI_Comm mpi_communicator;
   const unsigned int n_mpi_processes;
   const unsigned int this_mpi_process;
   ConditionalOStream pcout;
+  Interpolation<3> data_interpolation;
 
   IndexSet locally_owned_dofs;
   IndexSet locally_relevant_dofs;
@@ -138,8 +136,8 @@ CoupledTH<dim>::CoupledTH(const unsigned int degree)  // initialization
       face_quadrature_formula(degree + 1),
       time(0.0),
       timestep_number(0),
-      T_iteration_namber(0),
       P_iteration_namber(0),
+      T_iteration_namber(0),
       mpi_communicator(MPI_COMM_WORLD),
       n_mpi_processes(Utilities::MPI::n_mpi_processes(mpi_communicator)),
       this_mpi_process(Utilities::MPI::this_mpi_process(mpi_communicator)),
@@ -329,7 +327,8 @@ void CoupledTH<dim>::assemble_P_system() {
            face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
         if (cell->at_boundary(face_no)) {
           if (EquationData::g_num_QP_bnd_id > 0) {
-            for (int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id; ++bd_i) {
+            for (unsigned int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id;
+                 ++bd_i) {
 
               if (cell->face(face_no)->boundary_id() ==
                   EquationData::g_QP_bnd_id[bd_i]) {
@@ -391,7 +390,7 @@ void CoupledTH<dim>::assemble_P_system() {
   // // ADD DIRICLET BOUNDARY
   {
 
-    for (int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; ++bd_i) {
+    for (unsigned int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; ++bd_i) {
 
       P_boundary.get_bd_i(bd_i);
       P_boundary.set_time(time);
@@ -522,7 +521,8 @@ void CoupledTH<dim>::assemble_T_system() {
       for (unsigned int face_no = 0;
            face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
         if (cell->at_boundary(face_no)) {
-          for (int bd_i = 0; bd_i < EquationData::g_num_QT_bnd_id; ++bd_i) {
+          for (unsigned int bd_i = 0; bd_i < EquationData::g_num_QT_bnd_id;
+               ++bd_i) {
             if (cell->face(face_no)->boundary_id() ==
                 EquationData::g_QT_bnd_id[bd_i]) {
               fe_face_values.reinit(cell, face_no);
@@ -583,7 +583,7 @@ void CoupledTH<dim>::assemble_T_system() {
   // ADD DIRICHLET BOUNDARY
   {
 
-    for (int bd_i = 0; bd_i < EquationData::g_num_T_bnd_id; bd_i++) {
+    for (unsigned int bd_i = 0; bd_i < EquationData::g_num_T_bnd_id; bd_i++) {
       T_boundary.get_bd_i(bd_i);
       T_boundary.set_time(time);
       T_boundary.set_boundary_id(*(EquationData::g_T_bnd_id + bd_i));

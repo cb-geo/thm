@@ -6,7 +6,7 @@ double interpolate1d(std::vector<std::vector<double>>& Data, double x,
                      bool extrapolate) {
 
   std::vector<double> xData, yData;
-  for (int i = 0; i < Data.size(); i++) {
+  for (unsigned int i = 0; i < Data.size(); i++) {
     xData.push_back(Data[i][0]);
     yData.push_back(Data[i][1]);
   }
