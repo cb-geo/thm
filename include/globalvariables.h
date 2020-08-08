@@ -56,9 +56,10 @@ std::vector<double> g_time_sequence = {0,  0.1, 0.2, 0.5, 1,   2,   5,  10,
                                        15, 30,  60,  90,  120, 150, 180};
 const char time_unit = 'd';
 const unsigned int n_g_P_max_iteration = 1000;
-const unsigned int n_g_T_max_iteration = 4000;
+const unsigned int n_g_T_max_iteration = 10000;
 const double g_P_tol_residual = 1e-8;
-const double g_T_tol_residual = 1e-8;
+const double g_T_tol_residual =
+    1e-10;  // influence the solution in the visciity of well
 
 // dimention of the input data file (parameters_for_interpolation.txt in
 // inputfiles is used in the example)

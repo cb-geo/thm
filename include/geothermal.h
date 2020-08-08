@@ -65,7 +65,6 @@
 #include "interpolation.h"
 
 using namespace dealii;
-
 template <int dim>
 class CoupledTH {
  public:
@@ -616,7 +615,8 @@ void CoupledTH<dim>::linear_solve_P() {
   // pcout<< "\n the l1 norm of the P_system is"<< P_system_matrix.l1_norm() <<
   // "\n";
 
-  PETScWrappers::SolverCG cg(solver_control, mpi_communicator);  // config cg
+  PETScWrappers::SolverCG cg(solver_control,
+                             mpi_communicator);  // config cg
   PETScWrappers::PreconditionBlockJacobi preconditioner(P_system_matrix);
   cg.solve(P_system_matrix, distributed_P_solution, P_system_rhs,
            preconditioner);  // solve eq
@@ -641,11 +641,12 @@ void CoupledTH<dim>::linear_solve_T() {
                                                     mpi_communicator);
   distributed_T_solution = T_solution;
 
+  // GMRES:
   SolverControl solver_control(
       std::max<std::size_t>(n_T_max_iteration, T_system_rhs.size()),
       T_tol_residual * T_system_rhs.l2_norm());  // setting for solver
-  // pcout<< "\n the l1 norm of the T_system is"<< T_system_matrix.l1_norm() <<
-  // "\n";
+  // pcout<< "\n the l1 norm of the T_system is"<<
+  // T_system_matrix.l1_norm() << "\n";
   PETScWrappers::SolverGMRES solver(solver_control,
                                     mpi_communicator);  // config solver
 
@@ -805,6 +806,6 @@ void CoupledTH<dim>::run() {
 
   } while (time < period);
 
-  timer.tock("solve_all");
+  timer.tock("\n solve_all");
   pcout << "\n" << std::endl << std::endl;
 }
