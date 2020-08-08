@@ -172,7 +172,7 @@ void CoupledTH<dim>::make_grid() {
 
   GridIn<dim> gridin;  // instantiate a gridinput
   gridin.attach_triangulation(triangulation);
-  std::ifstream f("inputfiles/timesh.msh");
+  std::ifstream f("inputfiles/new_timesh.msh");
   gridin.read_msh(f);
   // print_mesh_info(triangulation, "outputfiles/grid-1.eps");
   // triangulation.refine_global(1);
@@ -322,40 +322,40 @@ void CoupledTH<dim>::assemble_P_system() {
 
       // APPLIED NEWMAN BOUNDARY CONDITION
       for (unsigned int face_no = 0;
-             face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
-          if (cell->at_boundary(face_no)) {
+           face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
+        if (cell->at_boundary(face_no)) {
           for (int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id; ++bd_i) {
-        
-          if (cell->face(face_no)->boundary_id() ==
-                  EquationData::g_QP_bnd_id[bd_i]) {
-            fe_face_values.reinit(cell, face_no);
 
-            // get boundary condition
-            QP_boundary.get_bd_i(bd_i);
-            QP_boundary.set_time(time);
-            QP_boundary.set_boundary_id(*(EquationData::g_QP_bnd_id + bd_i));
-            QP_boundary.value_list(fe_face_values.get_quadrature_points(),
-                                   QP_bd_values);
+            if (cell->face(face_no)->boundary_id() ==
+                EquationData::g_QP_bnd_id[bd_i]) {
+              fe_face_values.reinit(cell, face_no);
 
-            for (unsigned int q = 0; q < n_face_q_points; ++q) {
+              // get boundary condition
+              QP_boundary.get_bd_i(bd_i);
+              QP_boundary.set_time(time);
+              QP_boundary.set_boundary_id(*(EquationData::g_QP_bnd_id + bd_i));
+              QP_boundary.value_list(fe_face_values.get_quadrature_points(),
+                                     QP_bd_values);
 
-              const auto P_face_quadrature_coord =
-                  fe_face_values.quadrature_point(q);
-              // EquationData::g_perm =
-              //     interpolate1d(EquationData::g_perm_list,
-              //                   P_face_quadrature_coord[2], false);  //
-              //                   step-5
-              EquationData::g_perm = data_interpolation.value(
-                  P_face_quadrature_coord[0], P_face_quadrature_coord[1],
-                  P_face_quadrature_coord[2]);
+              for (unsigned int q = 0; q < n_face_q_points; ++q) {
 
-              for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-                P_local_rhs(i) += -time_step * EquationData::g_B_w *
-                                  (fe_face_values.shape_value(i, q) *
-                                   QP_bd_values[q] * fe_face_values.JxW(q));
+                const auto P_face_quadrature_coord =
+                    fe_face_values.quadrature_point(q);
+                // EquationData::g_perm =
+                //     interpolate1d(EquationData::g_perm_list,
+                //                   P_face_quadrature_coord[2], false);  //
+                //                   step-5
+                EquationData::g_perm = data_interpolation.value(
+                    P_face_quadrature_coord[0], P_face_quadrature_coord[1],
+                    P_face_quadrature_coord[2]);
+
+                for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+                  P_local_rhs(i) += -time_step * EquationData::g_B_w *
+                                    (fe_face_values.shape_value(i, q) *
+                                     QP_bd_values[q] * fe_face_values.JxW(q));
+                }
               }
             }
-          }
           }
         }
       }
@@ -504,42 +504,41 @@ void CoupledTH<dim>::assemble_T_system() {
               fe_values.JxW(q);
         }
       }
-      
 
       // APPLIED NEUMAN BOUNDARY CONDITION
-      
+
       for (unsigned int face_no = 0;
-             face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
-        if (cell->at_boundary(face_no)){
-            for (int bd_i = 0; bd_i < EquationData::g_num_QT_bnd_id; ++bd_i) {
-            if(cell->face(face_no)->boundary_id() ==
-                  EquationData::g_QT_bnd_id[bd_i]) {
-            fe_face_values.reinit(cell, face_no);
+           face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
+        if (cell->at_boundary(face_no)) {
+          for (int bd_i = 0; bd_i < EquationData::g_num_QT_bnd_id; ++bd_i) {
+            if (cell->face(face_no)->boundary_id() ==
+                EquationData::g_QT_bnd_id[bd_i]) {
+              fe_face_values.reinit(cell, face_no);
 
-            // get boundary condition
-            QT_boundary.get_bd_i(bd_i);
-            QT_boundary.set_time(time);
-            QT_boundary.set_boundary_id(*(EquationData::g_QT_bnd_id + bd_i));
-            QT_boundary.value_list(fe_face_values.get_quadrature_points(),
-                                   QT_bd_values);
+              // get boundary condition
+              QT_boundary.get_bd_i(bd_i);
+              QT_boundary.set_time(time);
+              QT_boundary.set_boundary_id(*(EquationData::g_QT_bnd_id + bd_i));
+              QT_boundary.value_list(fe_face_values.get_quadrature_points(),
+                                     QT_bd_values);
 
-            for (unsigned int q = 0; q < n_face_q_points; ++q) {
+              for (unsigned int q = 0; q < n_face_q_points; ++q) {
 
-              const auto T_face_quadrature_coord =
-                  fe_face_values.quadrature_point(q);
-              // EquationData::g_perm =
-              //     interpolate1d(EquationData::g_perm_list,
-              //                   T_face_quadrature_coord[2], false);  //
-              //                   step-5
-              EquationData::g_perm = data_interpolation.value(
-                  T_face_quadrature_coord[0], T_face_quadrature_coord[1],
-                  T_face_quadrature_coord[2]);
+                const auto T_face_quadrature_coord =
+                    fe_face_values.quadrature_point(q);
+                // EquationData::g_perm =
+                //     interpolate1d(EquationData::g_perm_list,
+                //                   T_face_quadrature_coord[2], false);  //
+                //                   step-5
+                EquationData::g_perm = data_interpolation.value(
+                    T_face_quadrature_coord[0], T_face_quadrature_coord[1],
+                    T_face_quadrature_coord[2]);
 
-              for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-                T_local_rhs(i) += -time_step / EquationData::g_c_T *
-                                  fe_face_values.shape_value(i, q) *
-                                  QT_bd_values[q] * fe_face_values.JxW(q);
-                  }
+                for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+                  T_local_rhs(i) += -time_step / EquationData::g_c_T *
+                                    fe_face_values.shape_value(i, q) *
+                                    QT_bd_values[q] * fe_face_values.JxW(q);
+                }
               }
             }
           }
@@ -568,35 +567,48 @@ void CoupledTH<dim>::assemble_T_system() {
   // compress the matrix
   T_system_matrix.compress(VectorOperation::add);
   T_system_rhs.compress(VectorOperation::add);
-  
-
 
   // ADD DIRICHLET BOUNDARY
   {
-    
+
     for (int bd_i = 0; bd_i < EquationData::g_num_T_bnd_id; bd_i++) {
       T_boundary.get_bd_i(bd_i);
       T_boundary.set_time(time);
       T_boundary.set_boundary_id(*(EquationData::g_T_bnd_id + bd_i));
       std::map<types::global_dof_index, double> T_bd_values;
 
-      if (bd_i < 2){timer.tick();}
-      
+      if (bd_i < 2) {
+        timer.tick();
+      }
+
       VectorTools::interpolate_boundary_values(
           dof_handler, *(EquationData::g_T_bnd_id + bd_i), T_boundary,
           T_bd_values);  // i is boundary index
-      if (bd_i < 2){timer.tock("interpolate");}
-      if (bd_i < 2){timer.tick();}
+      if (bd_i < 2) {
+        timer.tock("interpolate");
+      }
+      if (bd_i < 2) {
+        timer.tick();
+      }
       PETScWrappers::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
-      if (bd_i < 2){timer.tock("build_tmp");}
-      if (bd_i < 2){timer.tick();}
+      if (bd_i < 2) {
+        timer.tock("build_tmp");
+      }
+      if (bd_i < 2) {
+        timer.tick();
+      }
       MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, tmp,
                                          T_system_rhs, false);
-      if (bd_i < 2){timer.tock("apply_boundary_values");}
-      if (bd_i < 2){timer.tick();}
+      if (bd_i < 2) {
+        timer.tock("apply_boundary_values");
+      }
+      if (bd_i < 2) {
+        timer.tick();
+      }
       T_solution = tmp;
-      if (bd_i < 2){timer.tock("T_solution = tmp");}
-      
+      if (bd_i < 2) {
+        timer.tock("T_solution = tmp");
+      }
     }
   }
 
@@ -718,8 +730,7 @@ void CoupledTH<dim>::run() {
 
   cbgeo::Clock timer;
   timer.tick();
-  
-  
+
   unsigned int binary_search_number;
   double initial_time_step;
   double theta;
@@ -804,8 +815,6 @@ void CoupledTH<dim>::run() {
 
   } while (time < period);
 
-
   timer.tock("solve_all");
   pcout << "\n" << std::endl << std::endl;
-
 }
