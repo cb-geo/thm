@@ -15,22 +15,31 @@ const double g_c_w = 1e6;           // heat capacity of water
 const double g_B_w = 1e5;           // bulk modulus of pores
 
 // Pressure seetings
+// const int g_num_P_bnd_id = 8;  // numbers of  pressure boudnary condition id
+// const int g_P_bnd_id[g_num_P_bnd_id] = {
+//     1, 2, 4, 5, 7, 8, 1613, 1614};   // pressure boundary condition id
+
 const int g_num_P_bnd_id = 8;  // numbers of  pressure boudnary condition id
 const int g_P_bnd_id[g_num_P_bnd_id] = {
-    1, 2, 4, 5, 7, 8, 1613, 1614};   // pressure boundary condition id
+    1, 2, 4, 5, 7, 8, 1611, 1612};  // pressure boundary condition id
+
 const double g_Pb_top = 0;           // pressure at the top of model
 const double g_P_grad = 1000 * 9.8;  // pressure gradient in vertial direction
 
 // Velocity settings
+// const int g_num_QP_bnd_id = 4;  // numbers of velocity boudnary condition id
+// const int g_QP_bnd_id[g_num_QP_bnd_id] = {1, 4, 1613,
+//                                           1614};  // velocity  boundary
+
 const int g_num_QP_bnd_id = 4;  // numbers of velocity boudnary condition id
-const int g_QP_bnd_id[g_num_QP_bnd_id] = {1, 4, 1613,
-                                          1614};  // velocity  boundary
-                                                  // condition id
-const double g_Qb_lateral = 0;                    // wellbore temperature
+const int g_QP_bnd_id[g_num_QP_bnd_id] = {1, 4, 1611,
+                                          1612};  // velocity  boundary
+
+const double g_Qb_lateral = 0;  // wellbore temperature
 
 // Temperature seetings
-// const int g_num_T_bnd_id = 813;  // numbers of  temperature boudnary condition id
-// const int g_T_bnd_id[g_num_T_bnd_id] = {
+// const int g_num_T_bnd_id = 813;  // numbers of  temperature boudnary
+// condition id const int g_T_bnd_id[g_num_T_bnd_id] = {
 //     15,   16,   19,   20,   23,   24,   27,   28,   31,   32,   35,   36,
 //     39,   40,   43,   44,   47,   48,   51,   52,   54,   56,   58,   60,
 //     62,   64,   66,   68,   70,   72,   74,   76,   78,   80,   82,   84,
@@ -99,22 +108,34 @@ const double g_Qb_lateral = 0;                    // wellbore temperature
 //     1574, 1576, 1578, 1580, 1582, 1584, 1586, 1588, 1590, 1592, 1594, 1596,
 //     1598, 1600, 1602, 1604, 1606, 1608, 1610, 1612, 1,    2,    4,    5,
 //     7,    8,    1613, 1614, 6,    10,   3,    9,    11};  //  temperature
-//                                                           //  boudnary condition
-//                                                           //  id
-const int g_num_T_bnd_id = 14; 
-const int g_T_bnd_id[g_num_T_bnd_id] = {15, 1,    2,    4,    5,
-     7,    8,    1613, 1614, 6,    10,   3,    9,    11};
+
+// for course case
+// const int g_num_T_bnd_id = 9;
+// const int g_T_bnd_id[g_num_T_bnd_id] = {15, 1,    2,    4,    5,
+//      7,    8,    1613, 1614};
+
+// for fine case
+const int g_num_T_bnd_id = 9;
+const int g_T_bnd_id[g_num_T_bnd_id] = {15, 1, 2, 4, 5, 7, 8, 1611, 1612};
 
 const double g_Tb_well = 288.15;     // wellbore temperature
 const double g_Tb_top = 273.15 + 5;  // termperature at the top of model
 const double g_T_grad = 0.05;  // temperature gradient in verital direction
 
 // Heat flow rate settins
-const int g_num_QT_bnd_id = 6;  // numbers of velocity boudnary condition id
-const int g_QT_bnd_id[g_num_QT_bnd_id] = {6, 10, 12,
-                                          3, 9,  11};  // velocity  boundary
-                                                       // condition id
-const double g_QT_well = 0;                            // wellbore temperature
+// const int g_num_QT_bnd_id = 6;
+// const int g_QT_bnd_id[g_num_QT_bnd_id] = {6, 10, 12,
+//                                           3, 9,  11};
+
+const int g_num_QT_bnd_id = 4;  // numbers of velocity boudnary condition id
+const int g_QT_bnd_id[g_num_QT_bnd_id] = {
+    6,
+    10,
+    3,
+    9,
+};  // velocity  boundary
+
+const double g_QT_well = 0;  // wellbore temperature
 const double g_QT_top = -g_lam * g_T_grad;
 const double g_QT_bottom = g_lam * g_T_grad;
 
