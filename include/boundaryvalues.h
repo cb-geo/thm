@@ -114,10 +114,10 @@ double TemperatureDirichletBoundaryValues<dim>::value(
 
   const double time = this->get_time();
 
-  if (bd_i_ < 1) {
+  if (bd_i_ == 0) {
     return g_Tb_well;
   } else {
-    return g_Tb_top + g_T_grad * (0. - p[2]);
+    return g_Tb_seabed + g_T_grad * (0. - p[2]);
   }
 }
 
@@ -163,7 +163,7 @@ double TemperatureNeumanBoundaryValues<dim>::value(
   // }
 
   // fine case
-  if (bd_i_ < 2) {
+  if (bd_i_ < 1) {
     return g_QT_top;
   } else {
     return g_QT_bottom;

@@ -52,7 +52,17 @@ class TemperatureInitialValues : public Function<dim> {
 template <int dim>
 double TemperatureInitialValues<dim>::value(const Point<dim>& p,
                                             const unsigned int) const {
-  return g_Tb_top + g_T_grad * (0. - p[2]);
+  if (p[0] >= 0 ||
+      (1000.658 - 710.184) / (-289.56) <= (p[1] - 710.184) / p[0] ||
+      p[1] >= 1000.658 ||
+      (1000.658 - 710.184) / (-1371.6 + 1626.108) <=
+          (p[1] - 710.184) / (p[0] + 1626.108) ||
+      p[0] <= -1626.108 ||
+      279.806 / (-1626.108 + 1371.6) <= p[1] / (p[0] + 1371.6) || p[1] <= 0) {
+    return g_Tb_seabed + g_T_grad * (0. - p[2]);
+  } else {
+    return g_Tb_top + g_T_grad * (0. - p[2]);
+  }
 }
 
 // template <int dim>
