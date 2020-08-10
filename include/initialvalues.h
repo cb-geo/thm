@@ -58,7 +58,7 @@ double TemperatureInitialValues<dim>::value(const Point<dim>& p,
           (p[1] - 710.184) / (p[0] + 1626.108) ||
       p[0] < -1626.108 ||
       279.806 / (-1626.108 + 1371.6) < p[1] / (p[0] + 1371.6) || p[1] < 0) {
-    return g_Tb_seabed + g_T_grad * (0. - p[2]);
+    return g_Tb_seabed_top + g_T_seabed_grad * (0. - p[2]);
   } else {
     return g_Tb_top + g_T_grad * (0. - p[2]);
   }
