@@ -115,7 +115,7 @@ const double g_Qb_lateral = 0;  // wellbore temperature
 //      7,    8,    1613, 1614};
 
 // for fine case
-const int g_num_T_bnd_id = 10;
+const int g_num_T_bnd_id = 11;
 const int g_T_bnd_id[g_num_T_bnd_id] = {15, 9, 6, 1, 2, 4, 5, 7, 8, 1611, 1612};
 
 const double g_Tb_well = 273.15 + 25;   // wellbore temperature
@@ -128,7 +128,7 @@ const double g_T_grad = 0.05;  // temperature gradient in verital direction
 // const int g_QT_bnd_id[g_num_QT_bnd_id] = {6, 10, 12,
 //                                           3, 9,  11};
 
-const int g_num_QT_bnd_id = 3;  // numbers of velocity boudnary condition id
+const int g_num_QT_bnd_id = 2;  // numbers of velocity boudnary condition id
 const int g_QT_bnd_id[g_num_QT_bnd_id] = {
     10,
     3,
