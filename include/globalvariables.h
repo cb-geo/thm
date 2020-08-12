@@ -115,8 +115,8 @@ const double g_Qb_lateral = 0;  // wellbore temperature
 //      7,    8,    1613, 1614};
 
 // for fine case
-const int g_num_T_bnd_id = 13;
-const int g_T_bnd_id[g_num_T_bnd_id] = {13, 10, 9, 3, 6,    1,   2,
+const int g_num_T_bnd_id = 12;
+const int g_T_bnd_id[g_num_T_bnd_id] = {13, 9, 3, 6,    1,   2,
                                         4,  5,  7, 8, 1611, 1612};
 
 const double g_Tb_well = 273.15 + 25;  // wellbore temperature
