@@ -66,6 +66,7 @@ SET(thm_src
   ./src/get_parameter.cc
   ./src/interpolation1d.cc
   ./src/linspace.cc
+  ./src/inOrNot.cc
 )
 
 # aux_source_directory(./src/ thm_src)

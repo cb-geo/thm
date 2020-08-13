@@ -14,8 +14,6 @@ int main(int argc, char** argv) {
   //
   //get_parameter("inputfiles/parameters.csv", EquationData::g_perm_list, 1);
 
-  //edit
-  //Interpolation data_interpolation = Interpolation(EquationData::x_start, EquationData::x_end, EquationData::y_start, EquationData::y_end, EquationData::z_start, EquationData::z_end, EquationData::number_of_interval);
 
   if (EquationData::time_unit == 'd') {
     seconds = 86400;

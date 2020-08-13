@@ -774,14 +774,14 @@ void CoupledTH<dim>::run() {
 
     } while ((1 - theta) > 0.00001);
 
+    timestep_number += 1;
+
     pcout << "\nt=" << time << ", dt=" << time_step << '.' << std::endl;
 
     output_results(T_solution, "T");
     output_results(P_solution, "P");
 
     pcout << "\n" << std::endl << std::endl;
-
-    timestep_number += 1;
 
     // MatrixOut matrix_out;
     // std::ofstream out_T_matrix
