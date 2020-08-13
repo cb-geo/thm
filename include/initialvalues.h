@@ -52,7 +52,7 @@ class TemperatureInitialValues : public Function<dim> {
 template <int dim>
 double TemperatureInitialValues<dim>::value(const Point<dim>& p,
                                             const unsigned int) const {
-  int poly_sides = 7;
+  const int poly_sides = 7;
   double poly_x[poly_sides] = {0,         0,         -289.56,  -1371.6,
                                -1626.108, -1626.108, -1626.108};
   double poly_y[poly_sides] = {0,       710.184, 1000.658, 1000.658,
