@@ -54,7 +54,7 @@ double TemperatureInitialValues<dim>::value(const Point<dim>& p,
                                             const unsigned int) const {
   const int poly_sides = 7;
   double poly_x[poly_sides] = {0,         0,         -289.56,  -1371.6,
-                               -1626.108, -1626.108, -1626.108};
+                               -1626.108, -1626.108, -1371.6};
   double poly_y[poly_sides] = {0,       710.184, 1000.658, 1000.658,
                                710.184, 279.806, 0};
   int res = inOrNot(poly_sides, poly_x, poly_y, p[0], p[1]);
