@@ -38,13 +38,6 @@ double PressureDirichletBoundaryValues<dim>::value(
   // Assert(dim == 3, ExcNotImplemented());
   const double time = this->get_time();  // get time
 
-  // if (boundary_id_ == 4) {
-  //   return g_Pb_top;
-  // } else if (boundary_id_ == 3) {
-  //   return g_Pb_top + g_P_grad * (0. - p[2]);
-  // } else if (boundary_id_ == 5) {
-  //   return g_Pb_top + g_P_grad * (0. - p[2]);
-  // }
   // if (std::find(g_P_bnd_id, g_P_bnd_id + g_num_P_bnd_id, boundary_id_) !=
   //     g_P_bnd_id + g_num_P_bnd_id) {
   //   return g_Pb_top + g_P_grad * (0. - p[2]);
@@ -79,10 +72,6 @@ double PressureNeumanBoundaryValues<dim>::value(
   // Assert(component == 0, ExcIndexRange(component, 0, 1)); // for debug
   // Assert(dim == 3, ExcNotImplemented());
   double time = this->get_time();  // get time
-  // if (std::find(g_QP_bnd_id, g_QP_bnd_id + g_num_QP_bnd_id, boundary_id_) !=
-  //     g_QP_bnd_id + g_num_QP_bnd_id)  {
-  //   return g_Qb_lateral;
-  // }
   return g_Qb_lateral;
 }
 
@@ -157,14 +146,6 @@ double TemperatureNeumanBoundaryValues<dim>::value(
   // Assert(dim == 3, ExcNotImplemented());
 
   const double time = this->get_time();
-  // course case
-  // if (bd_i_ < 3) {
-  //   return g_QT_top;
-  // } else {
-  //   return g_QT_bottom;
-  // }
-
-  // fine case
   return g_QT_top;
 }
 
