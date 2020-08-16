@@ -25,6 +25,7 @@ const int g_P_bnd_id[g_num_P_bnd_id] = {
 
 const double g_Pb_top = 0;           // pressure at the top of model
 const double g_P_grad = 1000 * 9.8;  // pressure gradient in vertial direction
+const double g_P_grad_x = 1000 * 9.8 * 10 / 2000;  // 2000m drops ten meters
 
 // Velocity settings
 // const int g_num_QP_bnd_id = 4;  // numbers of velocity boudnary condition id
@@ -122,7 +123,7 @@ const int g_T_bnd_id[g_num_T_bnd_id] = {13, 9, 3, 6, 1,    2,
 const double g_Tb_well = 273.15 + 25;  // wellbore temperature
 const double g_Tb_top = 273.15 + 15;   // termperature at the top of model
 const double g_Tb_bottom = 273.15 + 18;
-const double g_Tb_seabed_top = 273.15 + 5;  // termperature at the top of model
+const double g_Tb_seabed_top = 273.15 + 15;  // termperature at the top of model
 const double g_Tb_seabed_bottom = g_Tb_bottom;
 const double g_T_grad = (g_Tb_bottom - g_Tb_top) /
                         60.96;  // temperature gradient in verital direction
