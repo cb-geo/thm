@@ -116,9 +116,8 @@ const double g_Qb_lateral = 0;  // wellbore temperature
 //      7,    8,    1613, 1614};
 
 // for fine case
-const int g_num_T_bnd_id = 12;
-const int g_T_bnd_id[g_num_T_bnd_id] = {13, 9, 3, 6, 1,    2,
-                                        4,  5, 7, 8, 1611, 1612};
+const int g_num_T_bnd_id = 11;
+const int g_T_bnd_id[g_num_T_bnd_id] = {13, 9, 3, 1, 2, 4, 5, 7, 8, 1611, 1612};
 
 const double g_Tb_well = 273.15 + 25;  // wellbore temperature
 const double g_Tb_top = 273.15 + 15;   // termperature at the top of model
@@ -134,8 +133,8 @@ const double g_T_seabed_grad = (g_Tb_seabed_bottom - g_Tb_seabed_top) / 60.96;
 // const int g_QT_bnd_id[g_num_QT_bnd_id] = {6, 10, 12,
 //                                           3, 9,  11};
 
-const int g_num_QT_bnd_id = 1;  // numbers of velocity boudnary condition id
-const int g_QT_bnd_id[g_num_QT_bnd_id] = {10};  // velocity  boundary
+const int g_num_QT_bnd_id = 2;  // numbers of velocity boudnary condition id
+const int g_QT_bnd_id[g_num_QT_bnd_id] = {6, 10};  // velocity  boundary
 
 const double g_QT_well = 0;  // wellbore temperature
 const double g_QT_top = -g_lam * g_T_grad;
