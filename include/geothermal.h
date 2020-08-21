@@ -172,7 +172,7 @@ void CoupledTH<dim>::make_grid() {
 
   GridIn<dim> gridin;  // instantiate a gridinput
   gridin.attach_triangulation(triangulation);
-  std::ifstream f("inputfiles/denseisland.msh");
+  std::ifstream f("inputfiles/new_build.msh");
   gridin.read_msh(f);
   // print_mesh_info(triangulation, "outputfiles/grid-1.eps");
   // triangulation.refine_global(1);
