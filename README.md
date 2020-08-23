@@ -68,7 +68,7 @@ mkdir p4est && cd p4est
 wget https://p4est.github.io/release/p4est-2.2.tar.gz
 wget https://www.dealii.org/current/external-libs/p4est-setup.sh
 chmod u+x p4est-setup.sh
-./p4est-setup.sh p4est-x-y-z.tar.gz $HOME/p4est
+./p4est-setup.sh p4est-2.2.tar.gz $HOME/p4est
 
 # Load module boost
 module load boost
