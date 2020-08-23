@@ -62,14 +62,23 @@ wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-5.1.0.tar.gz && \
     make config shared=1 cc=icc cxx=icpc prefix=$HOME/metis && \
     make install -j4 && cd ..
 
+# Install P4EST
+cd $HOME
+mkdir p4est && cd p4est
+wget https://p4est.github.io/release/p4est-2.2.tar.gz
+wget https://www.dealii.org/current/external-libs/p4est-setup.sh
+chmod u+x p4est-setup.sh
+./p4est-setup.sh p4est-x-y-z.tar.gz $HOME/p4est
+
 # Load module boost
 module load boost
 
 # Clone and compile dealii
-cd $HOME
+cds
 git clone https://github.com/dealii/dealii --depth=1 dealii-src
 cd dealii-src/ && mkdir build &&  cd build
-cmake -DCMAKE_INSTALL_PREFIX=$HOME/dealii -DPETSC_DIR=$PETSC_DIR -DPETSC_ARCH=clx -DDEAL_II_WITH_PETSC=On  -DDEAL_II_WITH_METIS=On -DMETIS_DIR=$HOME/metis/ -DDEAL_II_WITH_MPI=On ..
+cmake -DCMAKE_INSTALL_PREFIX=$HOME/dealii -DPETSC_DIR=$HOME/petsc-3.13.3 -DPETSC_ARCH=clx -DP4EST_DIR=$HOME/p4est -DDEAL_II_WITH_P4EST=ON -DDEAL_II_WITH_PETSC=On  -DDEAL_II_WITH_METIS=On -DMETIS_DIR=$HOME/metis/ -DDEAL_II_WITH_MPI=On ..
+
 make install -j4
 
 
