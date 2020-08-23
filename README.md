@@ -89,7 +89,7 @@ git clone https://github.com/cb-geo/thm
 cd thm
 git checkout thm_seg_parallel
 mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Release -DDEAL_II_DIR=$HOME/dealii/ ..
+cmake -DCMAKE_BUILD_TYPE=Release -DDEAL_II_DIR=$SCRATCH/dealii/ ..
 make -j
 ```
 
