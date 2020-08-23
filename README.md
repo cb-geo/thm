@@ -64,6 +64,8 @@ wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-5.1.0.tar.gz && \
 
 # Install P4EST
 cd $HOME
+export CC=mpicc
+export CXX=mpicxx
 mkdir p4est && cd p4est
 wget https://p4est.github.io/release/p4est-2.2.tar.gz
 wget https://www.dealii.org/current/external-libs/p4est-setup.sh
