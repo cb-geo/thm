@@ -77,6 +77,7 @@ module load boost
 
 # Clone and compile dealii
 cds
+module load impi-largemem
 export CC=icc
 export CXX=icpc
 git clone https://github.com/dealii/dealii --depth=1 dealii-src
