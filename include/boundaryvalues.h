@@ -42,7 +42,7 @@ double PressureDirichletBoundaryValues<dim>::value(
   //     g_P_bnd_id + g_num_P_bnd_id) {
   //   return g_Pb_top + g_P_grad * (0. - p[2]);
   // }
-  return g_Pb_top + g_P_grad * (0. - p[2]) - g_P_grad_x * (0 - p[0]);
+  return g_Pb_top + g_P_grad * (0. - p[2]) - g_P_grad_x * (-45.72 - p[0]);
 }
 
 template <int dim>
