@@ -148,3 +148,23 @@ echo $SCRATCH
 
 # to see the data folder
 cd $SCRATCH
+
+# You can use SCREEN to safely detach from the SSH session without exiting the remote job. It is helpful for people who are working with 
+# multiple remote servers. TACC has installed SCREEN. You can directly call it by:
+screen
+
+# To exit from the screen session, you just press "Ctrl-A" followed by "d". You will see an output below:
+[detached from 1371.pts-0.server]
+
+# After detaching from the screen session, you can log out from the remote system. The juo will keep running. If you want to re-attach to 
+# some screen session, you can call:
+screen -r [session ID]
+# such as 
+screen -r 1371
+
+# To see the session ID, you may call 
+screen -ls
+# then choose which screen session you want ot log in.
+
+# For more details, refer man pages
+man screen
