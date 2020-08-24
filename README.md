@@ -163,7 +163,7 @@ screen
 # After detaching from the screen session, you can log out from the remote system. The juo will keep running. If you want to re-attach to 
 # some screen session, you can call:
 screen -r [session ID]
-# such as 
+# for example
 screen -r 1371
 
 # To see the session ID, you may call 
