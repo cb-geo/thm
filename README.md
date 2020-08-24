@@ -149,6 +149,10 @@ echo $SCRATCH
 # to see the data folder
 cd $SCRATCH
 
+```
+SCREEN
+
+```
 # You can use SCREEN to safely detach from the SSH session without exiting the remote job. It is helpful for people who are working with 
 # multiple remote servers. TACC has installed SCREEN. You can directly call it by:
 screen
