@@ -563,7 +563,7 @@ void CoupledTH<dim>::assemble_T_system() {
     }
   }
 
-  timer.tock("assemble_T_system_no_DIRICHLET_boundary");
+  // timer.tock("assemble_T_system_no_DIRICHLET_boundary");
   // compress the matrix
   T_system_matrix.compress(VectorOperation::add);
   T_system_rhs.compress(VectorOperation::add);
@@ -590,7 +590,7 @@ void CoupledTH<dim>::assemble_T_system() {
     }
   }
 
-  // timer.tock("assemble_T_system");
+  timer.tock("assemble_T_system");
 }
 
 template <int dim>
