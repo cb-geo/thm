@@ -212,6 +212,7 @@ void CoupledTH<dim>::setup_system() {
   P_solution.reinit(dof_handler.n_dofs());
   old_P_solution.reinit(dof_handler.n_dofs());
   timer.tock("dof_handler");
+  pcout << "\n" << std::endl << std::endl;
 }
 
 template <int dim>
@@ -398,6 +399,7 @@ void CoupledTH<dim>::assemble_P_system() {
     }
   }
   timer.tock("assemble_P_system");
+  pcout << "\n" << std::endl << std::endl;
 }
 
 template <int dim>
@@ -591,6 +593,7 @@ void CoupledTH<dim>::assemble_T_system() {
   }
 
   timer.tock("assemble_T_system");
+  pcout << "\n" << std::endl << std::endl;
 }
 
 template <int dim>
@@ -619,6 +622,7 @@ void CoupledTH<dim>::linear_solve_P() {
         << "\n";
 
   timer.tock("linear_solve_P");
+  pcout << "\n" << std::endl << std::endl;
 }
 
 template <int dim>
@@ -651,6 +655,7 @@ void CoupledTH<dim>::linear_solve_T() {
         << "\n";
 
   timer.tock("linear_solve_T");
+  pcout << "\n" << std::endl << std::endl;
 }
 
 // @sect4{<code>CoupledTH::output_results</code>}
