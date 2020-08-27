@@ -60,12 +60,11 @@ const bool is_linspace = false;
 const double g_total_time = 86400 * 360;  // simulation time
 const double g_period = 86400 * 360;      // for periodic load
 const int g_n_time_step = 41;             // simulation time
-std::vector<double> g_time_sequence = {0,    90,   180,  270,  360,  450,  540,
-                                       630,  720,  810,  900,  990,  1080, 1170,
-                                       1260, 1350, 1440, 1530, 1620, 1710, 1800,
-                                       1890, 1980, 2070, 2160, 2250, 2340, 2430,
-                                       2520, 2610, 2700, 2790, 2880, 2970, 3060,
-                                       3150, 3240, 3330, 3420, 3510, 3600}
+std::vector<double> g_time_sequence = {
+    0,    90,   180,  270,  360,  450,  540,  630,  720,  810,  900,
+    990,  1080, 1170, 1260, 1350, 1440, 1530, 1620, 1710, 1800, 1890,
+    1980, 2070, 2160, 2250, 2340, 2430, 2520, 2610, 2700, 2790, 2880,
+    2970, 3060, 3150, 3240, 3330, 3420, 3510, 3600};
 
 const char time_unit = 'd';
 const unsigned int n_g_P_max_iteration = 1000;
