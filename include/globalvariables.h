@@ -57,10 +57,13 @@ const double g_QT_bottom = g_lam * g_T_grad;
 // solver settings
 
 const bool is_linspace = false;
-const double g_period = 86400 * 180;  // simulation time
-const int g_n_time_step = 15;         // simulation time
-std::vector<double> g_time_sequence = {0,  0.1, 0.2, 0.5, 1,   2,   5,  10,
-                                       15, 30,  60,  90,  120, 150, 180};
+const double g_total_time = 86400 * 360;  // simulation time
+const double g_period = 86400 * 360;      // for periodic load
+const int g_n_time_step = 10;             // simulation time
+std::vector<double> g_time_sequence = {0,   40,  80,  120, 160,
+                                       200, 240, 280, 320, 360};
+// 400, 440, 480, 520, 560, 600, 640, 680, 720
+// 760, 800, 840, 880, 920, 960, 1000, 1040, 1080};
 const char time_unit = 'd';
 const unsigned int n_g_P_max_iteration = 1000;
 const unsigned int n_g_T_max_iteration = 4000;
