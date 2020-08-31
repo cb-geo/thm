@@ -347,6 +347,7 @@ void CoupledTH<dim>::assemble_P_time_dependent_matrix_rhs() {
 
   // store the rhs and bd and old solution value at q_point of element for P
   std::vector<double> QP_bd_values(n_face_q_points);
+  std::vector<double> P_source_values(n_q_points);
 
   //  local element matrix
   Vector<double> P_cell_rhs(dofs_per_cell);
