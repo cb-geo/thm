@@ -105,10 +105,10 @@ class CoupledTH {
   PETScWrappers::MPI::Vector T_system_rhs;   // right hand side of T
                                              // system
 
-  Vector<double> P_solution;      // P solution at n
-  Vector<double> T_solution;      // T solution at n
-  Vector<double> old_P_solution;  // P solution at n-1
-  Vector<double> old_T_solution;  // T solution at n-1
+  Vector<double> P_solution;                  // P solution at n
+  Vector<double> T_solution;                  // T solution at n
+  PETScWrappers::MPI::Vector old_P_solution;  // P solution at n-1
+  Vector<double> old_T_solution;              // T solution at n-1
 
   double time;                   // t
   unsigned int timestep_number;  // n_t
@@ -223,8 +223,9 @@ void CoupledTH<dim>::setup_system() {
                                    mpi_communicator);
   P_system_rhs.reinit(locally_owned_dofs, mpi_communicator);
   P_system_rhs0.reinit(locally_owned_dofs, mpi_communicator);
+  old_P_solution.reinit(locally_owned_dofs, mpi_communicator);
   P_solution.reinit(dof_handler.n_dofs());
-  old_P_solution.reinit(dof_handler.n_dofs());
+
   timer.tock("dof_handler");
   pcout << "\n" << std::endl << std::endl;
 }
@@ -377,6 +378,7 @@ void CoupledTH<dim>::assemble_P_time_dependent_matrix_rhs() {
       // loop for q_point ASSMBLING CELL METRIX (weak form equation writing)
       for (unsigned int q = 0; q < n_q_points; ++q) {
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+          const double phi_i_P = fe_values.shape_value(i, q);
           P_cell_rhs(i) += (phi_i_P * P_source_values[q]) * fe_values.JxW(q);
         }
       }
@@ -433,9 +435,9 @@ void CoupledTH<dim>::assemble_P_system() {
   ;
   EquationData::PressureDirichletBoundaryValues<dim> P_boundary;
 
-  P_system_matrix = P_system_mass_matrix;
+  P_system_matrix.copy_from(P_system_mass_matrix);
   P_system_matrix.add(time_step, P_system_stiffness_matrix);
-  P_mass_matrix.vmult(old_load, old_P_solution);
+  P_system_mass_matrix.vmult(old_load, old_P_solution);
 
   P_system_rhs *= time_step;
   P_system_rhs += old_load;
@@ -803,9 +805,6 @@ void CoupledTH<dim>::run() {
                            old_T_solution);
   VectorTools::interpolate(
       dof_handler, EquationData::PressureInitialValues<dim>(), old_P_solution);
-
-  output_results(old_T_solution, "T");
-  output_results(old_P_solution, "P");
 
   assemble_P_const_matrix_rhs();
 
