@@ -291,9 +291,9 @@ void CoupledTH<dim>::assemble_P_const_matrix_rhs() {
                 (EquationData::g_perm * EquationData::g_B_w * grad_phi_i_P *
                  grad_phi_j_P * fe_values.JxW(q));
           }
-          P_cell_rhs(i) += (grad_phi_i_P * (Point<dim>(0, 0, 1)) *
-                            (-EquationData::g_B_w * EquationData::g_perm *
-                             EquationData::g_P_grad)) *
+          P_cell_rhs(i) += -(grad_phi_i_P * (Point<dim>(0, 0, 1)) *
+                             (EquationData::g_B_w * EquationData::g_perm *
+                              EquationData::g_P_grad)) *
                            fe_values.JxW(q);
         }
       }
@@ -428,9 +428,19 @@ template <int dim>
 void CoupledTH<dim>::assemble_P_system() {
   cbgeo::Clock timer;
   timer.tick();
+  PETScWrappers::MPI::Vector old_load(locally_owned_dofs, mpi_communicator);
+  ;
   EquationData::PressureDirichletBoundaryValues<dim> P_boundary;
 
-  // // ADD DIRICLET BOUNDARY
+  P_system_matrix = P_system_mass_matrix;
+  P_system_matrix.add(time_step, P_system_stiffness_matrix);
+  P_mass_matrix.vmult(old_load, old_P_solution);
+
+  P_system_rhs *= time_step;
+  P_system_rhs += old_load;
+  P_system_rhs.add(time_step, P_system_rhs0);
+
+  // ADD DIRICLET BOUNDARY
 
   for (int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; ++bd_i) {
 
