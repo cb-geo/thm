@@ -76,11 +76,8 @@ class CoupledTH {
  private:
   void make_grid();
   void setup_system();
-  void assemble_P_const_matrix_rhs();
-  void assemble_P_time_dependent_matrix_rhs();
-  void assemble_P_system();
   void assemble_T_system();
-
+  void assemble_P_system();
   void linear_solve_P();
   void linear_solve_T();
   void output_results(Vector<double>&, std::string) const;
@@ -94,21 +91,17 @@ class CoupledTH {
   const unsigned int degree;  // element degree
 
   // ConstraintMatrix constraints;  // hanging node
-  PETScWrappers::MPI::SparseMatrix P_system_mass_matrix;       // M_P
-  PETScWrappers::MPI::SparseMatrix P_system_stiffness_matrix;  // K_P
-  PETScWrappers::MPI::SparseMatrix P_system_matrix;            // M_P + K_P
-  PETScWrappers::MPI::SparseMatrix T_system_matrix;            // M_T + K_T
-  PETScWrappers::MPI::Vector P_system_rhs;   // right hand side of P
-                                             // system
-  PETScWrappers::MPI::Vector P_system_rhs0;  // right hand side of P
-                                             // system
-  PETScWrappers::MPI::Vector T_system_rhs;   // right hand side of T
-                                             // system
+  PETScWrappers::MPI::SparseMatrix P_system_matrix;  // M_P + K_P
+  PETScWrappers::MPI::SparseMatrix T_system_matrix;  // M_T + K_T
+  PETScWrappers::MPI::Vector P_system_rhs;           // right hand side of P
+                                                     // system
+  PETScWrappers::MPI::Vector T_system_rhs;           // right hand side of T
+                                                     // system
 
-  Vector<double> P_solution;                  // P solution at n
-  Vector<double> T_solution;                  // T solution at n
-  PETScWrappers::MPI::Vector old_P_solution;  // P solution at n-1
-  Vector<double> old_T_solution;              // T solution at n-1
+  Vector<double> P_solution;      // P solution at n
+  Vector<double> T_solution;      // T solution at n
+  Vector<double> old_P_solution;  // P solution at n-1
+  Vector<double> old_T_solution;  // T solution at n-1
 
   double time;                   // t
   unsigned int timestep_number;  // n_t
@@ -217,57 +210,99 @@ void CoupledTH<dim>::setup_system() {
   // forming system matrixes and initialize these matrixes
   P_system_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp,
                          mpi_communicator);
-  P_system_mass_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp,
-                              mpi_communicator);
-  P_system_stiffness_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp,
-                                   mpi_communicator);
   P_system_rhs.reinit(locally_owned_dofs, mpi_communicator);
-  P_system_rhs0.reinit(locally_owned_dofs, mpi_communicator);
-  old_P_solution.reinit(locally_owned_dofs, mpi_communicator);
   P_solution.reinit(dof_handler.n_dofs());
-
+  old_P_solution.reinit(dof_handler.n_dofs());
   timer.tock("dof_handler");
   pcout << "\n" << std::endl << std::endl;
 }
 
 template <int dim>
-void CoupledTH<dim>::assemble_P_const_matrix_rhs() {
+void CoupledTH<dim>::assemble_P_system() {
   cbgeo::Clock timer;
-  timer.tick();
+  // timer.tick();
 
   // reset matreix to zero
-  P_system_mass_matrix = 0;
-  P_system_stiffness_matrix = 0;
-  P_system_rhs0 = 0;
+  P_system_matrix = 0;
+  P_system_rhs = 0;
+  P_solution = 0;
 
   // Getting fe values
   FEValues<dim> fe_values(fe, quadrature_formula,
                           update_values | update_gradients |
                               update_quadrature_points | update_JxW_values);
 
+  FEFaceValues<dim> fe_face_values(fe, face_quadrature_formula,
+                                   update_values | update_normal_vectors |
+                                       update_quadrature_points |
+                                       update_JxW_values);
+
   // define loop number
   const unsigned int dofs_per_cell = fe.dofs_per_cell;
   const unsigned int n_q_points = quadrature_formula.size();
+  const unsigned int n_face_q_points = face_quadrature_formula.size();
+
+  // store the value at previous step at q_point for T
+  std::vector<double> old_T_sol_values(n_q_points);
+  std::vector<Tensor<1, dim>> old_T_sol_grads(n_q_points);
+
+  // store the value at previous step at q_point for P
+  std::vector<double> old_P_sol_values(n_q_points);
+  std::vector<Tensor<1, dim>> old_P_sol_grads(n_q_points);
+
+  // store the rhs and bd and old solution value at q_point of element for P
+  std::vector<double> P_source_values(n_q_points);
+  std::vector<double> QP_bd_values(n_face_q_points);
 
   //  local element matrix
   FullMatrix<double> P_cell_mass_matrix(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> P_cell_stiffness_matrix(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> P_cell_matrix(dofs_per_cell, dofs_per_cell);
   Vector<double> P_cell_rhs(dofs_per_cell);
-  std::vector<types::global_dof_index> P_local_dof_indices(dofs_per_cell);
+  std::vector<types::global_dof_index> P_cell_dof_indices(dofs_per_cell);
+
+  // boudnary condition and source term
+  EquationData::PressureSourceTerm<dim> P_source_term;
+  EquationData::PressureNeumanBoundaryValues<dim> QP_boundary;
+  EquationData::PressureDirichletBoundaryValues<dim> P_boundary;
 
   // loop for cell
   typename DoFHandler<dim>::active_cell_iterator cell =
                                                      dof_handler.begin_active(),
                                                  endc = dof_handler.end();
+
+  double duration1 = 0.;
+  double duration2 = 0.;
+  double duration3 = 0.;
+
   for (; cell != endc; ++cell) {
     if (cell->is_locally_owned()) {  // only assemble the system on cells that
                                      // acturally
                                      // belong to this MPI process
+
+      // if (cell == 0 || cell == endc) {
+      //   timer.tick();
+      // }
       // initialization
       P_cell_mass_matrix = 0;
       P_cell_stiffness_matrix = 0;
+      P_cell_matrix = 0;
       P_cell_rhs = 0;
       fe_values.reinit(cell);
+
+      // get the values at gauss point old_T_sol_values from the system
+      // old_T_solution
+      fe_values.get_function_values(old_T_solution, old_T_sol_values);
+      fe_values.get_function_gradients(old_T_solution, old_T_sol_grads);
+      fe_values.get_function_values(old_P_solution, old_P_sol_values);
+      fe_values.get_function_gradients(old_P_solution, old_P_sol_grads);
+
+      // get source term value at the gauss point
+      P_source_term.set_time(time);
+      P_source_term.value_list(fe_values.get_quadrature_points(),
+                               P_source_values);  // 一列q个
+
+      auto t1 = std::chrono::high_resolution_clock::now();
 
       // loop for q_point ASSMBLING CELL METRIX (weak form equation writing)
       for (unsigned int q = 0; q < n_q_points; ++q) {
@@ -289,99 +324,30 @@ void CoupledTH<dim>::assemble_P_const_matrix_rhs() {
             const double phi_j_P = fe_values.shape_value(j, q);
             P_cell_mass_matrix(i, j) += (phi_i_P * phi_j_P * fe_values.JxW(q));
             P_cell_stiffness_matrix(i, j) +=
-                (EquationData::g_perm * EquationData::g_B_w * grad_phi_i_P *
-                 grad_phi_j_P * fe_values.JxW(q));
+                (time_step * EquationData::g_perm * EquationData::g_B_w *
+                 grad_phi_i_P * grad_phi_j_P * fe_values.JxW(q));
+            P_cell_matrix(i, j) =
+                P_cell_mass_matrix(i, j) + P_cell_stiffness_matrix(i, j);
           }
-          P_cell_rhs(i) += -(grad_phi_i_P * (Point<dim>(0, 0, 1)) *
-                             (EquationData::g_B_w * EquationData::g_perm *
-                              EquationData::g_P_grad)) *
+          P_cell_rhs(i) += (time_step * phi_i_P * P_source_values[q] +
+                            time_step * grad_phi_i_P * (Point<dim>(0, 0, 1)) *
+                                (-EquationData::g_B_w * EquationData::g_perm *
+                                 EquationData::g_P_grad) +
+                            phi_i_P * old_P_sol_values[q]) *
                            fe_values.JxW(q);
         }
       }
 
-      // local ->globe
-      cell->get_dof_indices(P_local_dof_indices);
+      auto t2 = std::chrono::high_resolution_clock::now();
+      duration1 +=
+          std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1)
+              .count();
 
-      for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-        for (unsigned int j = 0; j < dofs_per_cell; ++j) {
-          P_system_mass_matrix.add(
-              P_local_dof_indices[i], P_local_dof_indices[j],
-              P_cell_mass_matrix(i, j));  // sys_mass matrix
-          P_system_stiffness_matrix.add(
-              P_local_dof_indices[i], P_local_dof_indices[j],
-              P_cell_stiffness_matrix(i, j));  // sys_stiff matrix
-        }
-        P_system_rhs0(P_local_dof_indices[i]) += P_cell_rhs(i);
-      }
-    }
-  }
-
-  P_system_mass_matrix.compress(VectorOperation::add);
-  P_system_stiffness_matrix.compress(VectorOperation::add);
-  P_system_rhs0.compress(VectorOperation::add);
-
-  timer.tock("assemble_P_const_matrix_rhs");
-  pcout << "\n" << std::endl << std::endl;
-}
-
-template <int dim>
-void CoupledTH<dim>::assemble_P_time_dependent_matrix_rhs() {
-  cbgeo::Clock timer;
-  timer.tick();
-
-  P_system_rhs = 0;
-
-  // Getting fe values
-  FEValues<dim> fe_values(fe, quadrature_formula,
-                          update_values | update_gradients |
-                              update_quadrature_points | update_JxW_values);
-
-  FEFaceValues<dim> fe_face_values(fe, face_quadrature_formula,
-                                   update_values | update_normal_vectors |
-                                       update_quadrature_points |
-                                       update_JxW_values);
-
-  // define loop number
-  const unsigned int dofs_per_cell = fe.dofs_per_cell;
-  const unsigned int n_q_points = quadrature_formula.size();
-  const unsigned int n_face_q_points = face_quadrature_formula.size();
-
-  // store the rhs and bd and old solution value at q_point of element for P
-  std::vector<double> QP_bd_values(n_face_q_points);
-  std::vector<double> P_source_values(n_q_points);
-
-  //  local element matrix
-  Vector<double> P_cell_rhs(dofs_per_cell);
-  std::vector<types::global_dof_index> P_local_dof_indices(dofs_per_cell);
-
-  // boudnary condition and source term
-  EquationData::PressureSourceTerm<dim> P_source_term;
-  EquationData::PressureNeumanBoundaryValues<dim> QP_boundary;
-
-  // loop for cell
-  typename DoFHandler<dim>::active_cell_iterator cell =
-                                                     dof_handler.begin_active(),
-                                                 endc = dof_handler.end();
-  for (; cell != endc; ++cell) {
-    if (cell->is_locally_owned()) {  // only assemble the system on cells that
-                                     // acturally
-                                     // belong to this MPI process
-      // initialization
-      P_cell_rhs = 0;
-      fe_values.reinit(cell);
-
-      // get source term value at the gauss point
-      P_source_term.set_time(time);
-      P_source_term.value_list(fe_values.get_quadrature_points(),
-                               P_source_values);  // 一列q个
-
-      // loop for q_point ASSMBLING CELL METRIX (weak form equation writing)
-      for (unsigned int q = 0; q < n_q_points; ++q) {
-        for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-          const double phi_i_P = fe_values.shape_value(i, q);
-          P_cell_rhs(i) += (phi_i_P * P_source_values[q]) * fe_values.JxW(q);
-        }
-      }
+      // if (cell == 0 || cell == endc) {
+      //   timer.tock("system matrix");
+      //   pcout << "\n" << std::endl << std::endl;
+      // }
+      auto tt1 = std::chrono::high_resolution_clock::now();
 
       // APPLIED NEWMAN BOUNDARY CONDITION
       for (unsigned int face_no = 0;
@@ -401,8 +367,19 @@ void CoupledTH<dim>::assemble_P_time_dependent_matrix_rhs() {
                                      QP_bd_values);
 
               for (unsigned int q = 0; q < n_face_q_points; ++q) {
+
+                const auto P_face_quadrature_coord =
+                    fe_face_values.quadrature_point(q);
+                // EquationData::g_perm =
+                //     interpolate1d(EquationData::g_perm_list,
+                //                   P_face_quadrature_coord[2], false);  //
+                //                   step-5
+                EquationData::g_perm = data_interpolation.value(
+                    P_face_quadrature_coord[0], P_face_quadrature_coord[1],
+                    P_face_quadrature_coord[2]);
+
                 for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-                  P_cell_rhs(i) += -EquationData::g_B_w *
+                  P_cell_rhs(i) += -time_step * EquationData::g_B_w *
                                    (fe_face_values.shape_value(i, q) *
                                     QP_bd_values[q] * fe_face_values.JxW(q));
                 }
@@ -411,56 +388,65 @@ void CoupledTH<dim>::assemble_P_time_dependent_matrix_rhs() {
           }
         }
       }
+      auto tt2 = std::chrono::high_resolution_clock::now();
+      duration2 +=
+          std::chrono::duration_cast<std::chrono::microseconds>(tt2 - tt1)
+              .count();
 
       // local ->globe
-      cell->get_dof_indices(P_local_dof_indices);
+      cell->get_dof_indices(P_cell_dof_indices);
+
+      auto ttt1 = std::chrono::high_resolution_clock::now();
 
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-        P_system_rhs(P_local_dof_indices[i]) += P_cell_rhs(i);
+        for (unsigned int j = 0; j < dofs_per_cell; ++j) {
+          if (abs(P_cell_matrix(i, j)) > 0.00000001) {
+            P_system_matrix.add(P_cell_dof_indices[i], P_cell_dof_indices[j],
+                                P_cell_matrix(i, j));  // sys_mass matrix
+          }
+        }
+        P_system_rhs(P_cell_dof_indices[i]) += P_cell_rhs(i);
       }
+
+      auto ttt2 = std::chrono::high_resolution_clock::now();
+      duration3 +=
+          std::chrono::duration_cast<std::chrono::microseconds>(ttt2 - ttt1)
+              .count();
+    }
+  }
+  std::cout << "\n"
+            << "pressure duration1"
+            << ": " << duration1 / 1000 << " ms";
+  std::cout << "\n"
+            << "pressure duration2"
+            << ": " << duration2 / 1000 << " ms";
+  std::cout << "\n"
+            << "pressure duration3"
+            << ": " << duration3 / 1000 << " ms";
+
+  P_system_matrix.compress(VectorOperation::add);
+  P_system_rhs.compress(VectorOperation::add);
+
+  // // ADD DIRICLET BOUNDARY
+  {
+
+    for (int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; ++bd_i) {
+
+      P_boundary.get_bd_i(bd_i);
+      P_boundary.set_time(time);
+      P_boundary.set_boundary_id(*(EquationData::g_P_bnd_id + bd_i));
+      std::map<types::global_dof_index, double> P_bd_values;
+      VectorTools::interpolate_boundary_values(
+          dof_handler, *(EquationData::g_P_bnd_id + bd_i), P_boundary,
+          P_bd_values);  // i is boundary index
+      PETScWrappers::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
+      MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, tmp,
+                                         P_system_rhs, false);
+      P_solution = tmp;
     }
   }
 
-  P_system_rhs.compress(VectorOperation::add);
-
-  timer.tock("assemble_P_time_dependent_matrix_rhs");
-  pcout << "\n" << std::endl << std::endl;
-}
-
-template <int dim>
-void CoupledTH<dim>::assemble_P_system() {
-  cbgeo::Clock timer;
-  timer.tick();
-  PETScWrappers::MPI::Vector old_load(locally_owned_dofs, mpi_communicator);
-  ;
-  EquationData::PressureDirichletBoundaryValues<dim> P_boundary;
-
-  P_system_matrix.copy_from(P_system_mass_matrix);
-  P_system_matrix.add(time_step, P_system_stiffness_matrix);
-  P_system_mass_matrix.vmult(old_load, old_P_solution);
-
-  P_system_rhs *= time_step;
-  P_system_rhs += old_load;
-  P_system_rhs.add(time_step, P_system_rhs0);
-
-  // ADD DIRICLET BOUNDARY
-
-  for (int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; ++bd_i) {
-
-    P_boundary.get_bd_i(bd_i);
-    P_boundary.set_time(time);
-    P_boundary.set_boundary_id(*(EquationData::g_P_bnd_id + bd_i));
-    std::map<types::global_dof_index, double> P_bd_values;
-    VectorTools::interpolate_boundary_values(
-        dof_handler, *(EquationData::g_P_bnd_id + bd_i), P_boundary,
-        P_bd_values);  // i is boundary index
-    PETScWrappers::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
-    MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, tmp,
-                                       P_system_rhs, false);
-    P_solution = tmp;
-  }
-
-  timer.tock("assemble_P_system");
+  // timer.tock("assemble_P_system");
   pcout << "\n" << std::endl << std::endl;
 }
 
@@ -504,8 +490,9 @@ void CoupledTH<dim>::assemble_T_system() {
   FullMatrix<double> T_cell_mass_matrix(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> T_cell_stiffness_matrix(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> T_cell_convection_matrix(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> T_cell_matrix(dofs_per_cell, dofs_per_cell);
   Vector<double> T_cell_rhs(dofs_per_cell);
-  std::vector<types::global_dof_index> T_local_dof_indices(dofs_per_cell);
+  std::vector<types::global_dof_index> T_cell_dof_indices(dofs_per_cell);
 
   // boudnary condition
   EquationData::TemperatureSourceTerm<dim> T_source_term;
@@ -516,12 +503,18 @@ void CoupledTH<dim>::assemble_T_system() {
   typename DoFHandler<dim>::active_cell_iterator cell =
                                                      dof_handler.begin_active(),
                                                  endc = dof_handler.end();
+  // count duration
+  double duration1 = 0.;
+  double duration2 = 0.;
+  double duration3 = 0.;
+
   for (; cell != endc; ++cell) {
     if (cell->is_locally_owned()) {
       // initialization
       T_cell_mass_matrix = 0;
       T_cell_stiffness_matrix = 0;
       T_cell_convection_matrix = 0;
+      T_cell_matrix = 0;
       T_cell_rhs = 0;
       fe_values.reinit(cell);
       // get the values at gauss point
@@ -533,6 +526,8 @@ void CoupledTH<dim>::assemble_T_system() {
       T_source_term.set_time(time);
       T_source_term.value_list(fe_values.get_quadrature_points(),
                                T_source_values);
+
+      auto t1 = std::chrono::high_resolution_clock::now();
 
       // loop for q_point ASSMBLING CELL METRIX (weak form equation writing)
       for (unsigned int q = 0; q < n_q_points; ++q) {
@@ -561,6 +556,9 @@ void CoupledTH<dim>::assemble_T_system() {
                  (old_P_sol_grads[q] +
                   (Point<dim>(0, 0, 1)) * EquationData::g_P_grad) *
                  grad_phi_j_T * fe_values.JxW(q));
+            T_cell_matrix(i, j) = T_cell_mass_matrix(i, j) +
+                                  T_cell_stiffness_matrix(i, j) +
+                                  T_cell_convection_matrix(i, j);
           }
 
           T_cell_rhs(i) +=
@@ -569,8 +567,13 @@ void CoupledTH<dim>::assemble_T_system() {
         }
       }
 
-      // APPLIED NEUMAN BOUNDARY CONDITION
+      auto t2 = std::chrono::high_resolution_clock::now();
+      duration1 +=
+          std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1)
+              .count();
+      auto tt1 = std::chrono::high_resolution_clock::now();
 
+      // APPLIED NEUMAN BOUNDARY CONDITION
       for (unsigned int face_no = 0;
            face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
         if (cell->at_boundary(face_no)) {
@@ -609,23 +612,38 @@ void CoupledTH<dim>::assemble_T_system() {
         }
       }
 
+      auto tt2 = std::chrono::high_resolution_clock::now();
+      duration2 +=
+          std::chrono::duration_cast<std::chrono::microseconds>(tt2 - tt1)
+              .count();
+      auto ttt1 = std::chrono::high_resolution_clock::now();
+
       // local ->globe
-      cell->get_dof_indices(T_local_dof_indices);
+      cell->get_dof_indices(T_cell_dof_indices);
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
         for (unsigned int j = 0; j < dofs_per_cell; ++j) {
-          T_system_matrix.add(T_local_dof_indices[i], T_local_dof_indices[j],
-                              T_cell_mass_matrix(i, j));  // mass_matrix
-          T_system_matrix.add(
-              T_local_dof_indices[i], T_local_dof_indices[j],
-              T_cell_stiffness_matrix(i, j));  // striffness_matrix
-          T_system_matrix.add(
-              T_local_dof_indices[i], T_local_dof_indices[j],
-              T_cell_convection_matrix(i, j));  // convection_matrix
+          T_system_matrix.add(T_cell_dof_indices[i], T_cell_dof_indices[j],
+                              T_cell_matrix(i, j));  // mass_matrix
         }
-        T_system_rhs(T_local_dof_indices[i]) += T_cell_rhs(i);
+        T_system_rhs(T_cell_dof_indices[i]) += T_cell_rhs(i);
       }
+
+      auto ttt2 = std::chrono::high_resolution_clock::now();
+      duration3 +=
+          std::chrono::duration_cast<std::chrono::microseconds>(ttt2 - ttt1)
+              .count();
     }
   }
+
+  std::cout << "\n"
+            << "temperature duration1"
+            << ": " << duration1 / 1000 << " ms";
+  std::cout << "\n"
+            << "temperature duration2"
+            << ": " << duration2 / 1000 << " ms";
+  std::cout << "\n"
+            << "temperature duration3"
+            << ": " << duration3 / 1000 << " ms";
 
   // timer.tock("assemble_T_system_no_DIRICHLET_boundary");
   // compress the matrix
@@ -806,7 +824,8 @@ void CoupledTH<dim>::run() {
   VectorTools::interpolate(
       dof_handler, EquationData::PressureInitialValues<dim>(), old_P_solution);
 
-  assemble_P_const_matrix_rhs();
+  output_results(old_T_solution, "T");
+  output_results(old_P_solution, "P");
 
   do {
     pcout << "\nTimestep " << timestep_number;
@@ -818,8 +837,6 @@ void CoupledTH<dim>::run() {
     theta = 0;
 
     do {
-
-      assemble_P_time_dependent_matrix_rhs();
 
       assemble_P_system();
 
