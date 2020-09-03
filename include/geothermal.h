@@ -472,6 +472,10 @@ void CoupledTH<dim>::assemble_T_system() {
   EquationData::TemperatureNeumanBoundaryValues<dim> QT_boundary;
   EquationData::TemperatureDirichletBoundaryValues<dim> T_boundary;
 
+  timer.tock("decration");
+  pcout << "\n" << std::endl << std::endl;
+  timer.tick();
+
   // loop for cell
   typename DoFHandler<dim>::active_cell_iterator cell =
                                                      dof_handler.begin_active(),
@@ -592,6 +596,10 @@ void CoupledTH<dim>::assemble_T_system() {
   T_system_matrix.compress(VectorOperation::add);
   T_system_rhs.compress(VectorOperation::add);
 
+  timer.tock("system matric");
+  pcout << "\n" << std::endl << std::endl;
+  timer.tick();
+
   // ADD DIRICHLET BOUNDARY
   {
 
@@ -615,7 +623,8 @@ void CoupledTH<dim>::assemble_T_system() {
     }
   }
 
-  timer.tock("assemble_T_system");
+  timer.tock("boundary condition");
+  // timer.tock("assemble_T_system");
   pcout << "\n" << std::endl << std::endl;
 }
 
