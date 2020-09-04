@@ -400,10 +400,8 @@ void CoupledTH<dim>::assemble_P_system() {
 
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
         for (unsigned int j = 0; j < dofs_per_cell; ++j) {
-          if (abs(P_cell_matrix(i, j)) > 0.00000001) {
-            P_system_matrix.add(P_cell_dof_indices[i], P_cell_dof_indices[j],
-                                P_cell_matrix(i, j));  // sys_mass matrix
-          }
+          P_system_matrix.add(P_cell_dof_indices[i], P_cell_dof_indices[j],
+                              P_cell_matrix(i, j));  // sys_mass matrix
         }
         P_system_rhs(P_cell_dof_indices[i]) += P_cell_rhs(i);
       }
