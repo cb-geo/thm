@@ -110,7 +110,6 @@ class CoupledTH {
   IndexSet locally_owned_dofs;
   IndexSet locally_relevant_dofs;
 
-  AffineConstraints<double> P_constraints;
   AffineConstraints<double> T_constraints;
 
   const unsigned int degree;  // element degree
@@ -222,25 +221,8 @@ void CoupledTH<dim>::setup_P_system() {
 
   P_system_rhs.reinit(locally_owned_dofs, mpi_communicator);
 
-  // Setup boundary constraints
-  EquationData::PressureDirichletBoundaryValues<dim> P_boundary;
-  P_constraints.clear();
-  P_constraints.reinit(locally_relevant_dofs);
-  {
-    for (int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; ++bd_i) {
-
-      P_boundary.get_bd_i(bd_i);
-      P_boundary.set_time(time);
-      P_boundary.set_boundary_id(*(EquationData::g_P_bnd_id + bd_i));
-      VectorTools::interpolate_boundary_values(
-          dof_handler, *(EquationData::g_P_bnd_id + bd_i), P_boundary,
-          P_constraints);  // i is boundary index
-    }
-  }
-  P_constraints.close();
-
   DynamicSparsityPattern dsp(locally_relevant_dofs);
-  DoFTools::make_sparsity_pattern(dof_handler, dsp, P_constraints, false);
+  DoFTools::make_sparsity_pattern(dof_handler, dsp);
   SparsityTools::distribute_sparsity_pattern(
       dsp, locally_owned_dofs, mpi_communicator, locally_relevant_dofs);
 
@@ -444,43 +426,37 @@ void CoupledTH<dim>::assemble_P_system() {
       // local ->globe
       cell->get_dof_indices(P_local_dof_indices);
 
-      // for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-      //   for (unsigned int j = 0; j < dofs_per_cell; ++j) {
-      //     P_system_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
-      //                         P_cell_matrix(i, j));  // sys_mass matrix
-      //     P_system_matrix.add(
-      //         P_local_dof_indices[i], P_local_dof_indices[j],
-      //         P_cell_matrix(i, j));  // sys_stiff matrix
-      //   }
-      //   P_system_rhs(P_local_dof_indices[i]) += P_cell_rhs(i);
-      // }
-
-      P_constraints.distribute_local_to_global(P_cell_matrix, P_cell_rhs,
-                                               P_local_dof_indices,
-                                               P_system_matrix, P_system_rhs);
+      for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+        for (unsigned int j = 0; j < dofs_per_cell; ++j) {
+          P_system_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
+                              P_cell_matrix(i, j));  // sys_mass matrix
+        }
+        P_system_rhs(P_local_dof_indices[i]) += P_cell_rhs(i);
+      }
     }
   }
 
   P_system_matrix.compress(VectorOperation::add);
   P_system_rhs.compress(VectorOperation::add);
 
-  // // ADD DIRICHLET BOUNDARY
-  // {
+  // ADD DIRICHLET BOUNDARY
+  {
 
-  //   for (int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; bd_i++) {
-  //     P_boundary.get_bd_i(bd_i);
-  //     P_boundary.set_time(time);
-  //     P_boundary.set_boundary_id(*(EquationData::g_P_bnd_id + bd_i));
-  //     std::map<types::global_dof_index, double> P_bd_values;
-  //     VectorTools::interpolate_boundary_values(
-  //         dof_handler, *(EquationData::g_P_bnd_id + bd_i), P_boundary,
-  //         P_bd_values);  // i is boundary index
-  //     PETScWrappers::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
-  //     MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, tmp,
-  //                                        P_system_rhs, false);
-  //     P_solution = tmp;
-  //   }
-  // }
+    for (unsigned int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; ++bd_i) {
+
+      P_boundary.get_bd_i(bd_i);
+      P_boundary.set_time(time);
+      P_boundary.set_boundary_id(*(EquationData::g_P_bnd_id + bd_i));
+      std::map<types::global_dof_index, double> P_bd_values;
+      VectorTools::interpolate_boundary_values(
+          dof_handler, *(EquationData::g_P_bnd_id + bd_i), P_boundary,
+          P_bd_values);  // i is boundary index
+      PETScWrappers::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
+      MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, tmp,
+                                         P_system_rhs, false);
+      P_solution = tmp;
+    }
+  }
   timer.tock("assemble_P_system");
 }
 
@@ -705,7 +681,6 @@ void CoupledTH<dim>::linear_solve_P() {
 
   P_iteration_namber = solver_control.last_step();
 
-  P_constraints.distribute(distributed_P_solution);
   P_locally_relevant_solution = distributed_P_solution;
 
   old_P_locally_relevant_solution = distributed_P_solution;
