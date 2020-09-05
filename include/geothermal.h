@@ -835,8 +835,8 @@ void CoupledTH<dim>::run() {
 
     timestep_number += 1;
 
-    setup_P_system();
-    setup_T_system();
+    // setup_P_system();
+    // setup_T_system();
     // MatrixOut matrix_out;
     // std::ofstream out_T_matrix
     // ("/outputfiles/2rhs_T_matrix_at_"+std::to_string(time));
