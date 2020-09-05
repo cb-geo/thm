@@ -726,7 +726,7 @@ void CoupledTH<dim>::linear_solve_T() {
   LA::SolverGMRES solver(solver_control,
                          mpi_communicator);  // config solver
 
-  LA::PreconditionJacobi preconditioner(T_system_matrix);  // precond
+  LA::MPI::PreconditionJacobi preconditioner(T_system_matrix);  // precond
 
   solver.solve(T_system_matrix, distributed_T_solution, T_system_rhs,
                preconditioner);  // solve eq
