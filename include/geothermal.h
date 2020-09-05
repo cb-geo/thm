@@ -110,6 +110,7 @@ class CoupledTH {
   IndexSet locally_owned_dofs;
   IndexSet locally_relevant_dofs;
 
+  AffineConstraints<double> P_constraints;
   AffineConstraints<double> T_constraints;
 
   const unsigned int degree;  // element degree
@@ -221,8 +222,25 @@ void CoupledTH<dim>::setup_P_system() {
 
   P_system_rhs.reinit(locally_owned_dofs, mpi_communicator);
 
+  // Setup boundary constraints
+  EquationData::PressureDirichletBoundaryValues<dim> P_boundary;
+  P_constraints.clear();
+  P_constraints.reinit(locally_relevant_dofs);
+  {
+    for (int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; ++bd_i) {
+
+      P_boundary.get_bd_i(bd_i);
+      P_boundary.set_time(time);
+      P_boundary.set_boundary_id(*(EquationData::g_P_bnd_id + bd_i));
+      VectorTools::interpolate_boundary_values(
+          dof_handler, *(EquationData::g_P_bnd_id + bd_i), P_boundary,
+          P_constraints);  // i is boundary index
+    }
+  }
+  P_constraints.close();
+
   DynamicSparsityPattern dsp(locally_relevant_dofs);
-  DoFTools::make_sparsity_pattern(dof_handler, dsp);
+  DoFTools::make_sparsity_pattern(dof_handler, dsp, P_constraints, false);
   SparsityTools::distribute_sparsity_pattern(
       dsp, locally_owned_dofs, mpi_communicator, locally_relevant_dofs);
 
@@ -310,8 +328,7 @@ void CoupledTH<dim>::assemble_P_system() {
   // boudnary condition and source term
   EquationData::PressureSourceTerm<dim> P_source_term;
   EquationData::PressureNeumanBoundaryValues<dim> QP_boundary;
-  EquationData::PressureDirichletBoundaryValues<dim> P_boundary;
-
+  // EquationData::PressureDirichletBoundaryValues<dim> P_boundary;
   // loop for cell
   typename DoFHandler<dim>::active_cell_iterator cell =
                                                      dof_handler.begin_active(),
@@ -427,37 +444,43 @@ void CoupledTH<dim>::assemble_P_system() {
       // local ->globe
       cell->get_dof_indices(P_local_dof_indices);
 
-      for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-        for (unsigned int j = 0; j < dofs_per_cell; ++j) {
-          P_system_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
-                              P_cell_matrix(i, j));  // sys_mass matrix
-        }
-        P_system_rhs(P_local_dof_indices[i]) += P_cell_rhs(i);
-      }
+      // for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+      //   for (unsigned int j = 0; j < dofs_per_cell; ++j) {
+      //     P_system_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
+      //                         P_cell_matrix(i, j));  // sys_mass matrix
+      //     P_system_matrix.add(
+      //         P_local_dof_indices[i], P_local_dof_indices[j],
+      //         P_cell_matrix(i, j));  // sys_stiff matrix
+      //   }
+      //   P_system_rhs(P_local_dof_indices[i]) += P_cell_rhs(i);
+      // }
+
+      P_constraints.distribute_local_to_global(P_cell_matrix, P_cell_rhs,
+                                               P_local_dof_indices,
+                                               P_system_matrix, P_system_rhs);
     }
   }
 
   P_system_matrix.compress(VectorOperation::add);
   P_system_rhs.compress(VectorOperation::add);
 
-  // ADD DIRICHLET BOUNDARY
-  {
+  // // ADD DIRICHLET BOUNDARY
+  // {
 
-    for (unsigned int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; ++bd_i) {
-
-      P_boundary.get_bd_i(bd_i);
-      P_boundary.set_time(time);
-      P_boundary.set_boundary_id(*(EquationData::g_P_bnd_id + bd_i));
-      std::map<types::global_dof_index, double> P_bd_values;
-      VectorTools::interpolate_boundary_values(
-          dof_handler, *(EquationData::g_P_bnd_id + bd_i), P_boundary,
-          P_bd_values);  // i is boundary index
-      LA::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
-      MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, tmp,
-                                         P_system_rhs, false);
-      P_locally_relevant_solution = tmp;
-    }
-  }
+  //   for (int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; bd_i++) {
+  //     P_boundary.get_bd_i(bd_i);
+  //     P_boundary.set_time(time);
+  //     P_boundary.set_boundary_id(*(EquationData::g_P_bnd_id + bd_i));
+  //     std::map<types::global_dof_index, double> P_bd_values;
+  //     VectorTools::interpolate_boundary_values(
+  //         dof_handler, *(EquationData::g_P_bnd_id + bd_i), P_boundary,
+  //         P_bd_values);  // i is boundary index
+  //     PETScWrappers::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
+  //     MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, tmp,
+  //                                        P_system_rhs, false);
+  //     P_solution = tmp;
+  //   }
+  // }
   timer.tock("assemble_P_system");
 }
 
@@ -650,7 +673,7 @@ void CoupledTH<dim>::assemble_T_system() {
   //     VectorTools::interpolate_boundary_values(
   //         dof_handler, *(EquationData::g_T_bnd_id + bd_i), T_boundary,
   //         T_bd_values);  // i is boundary index
-  //     LA::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
+  //     PETScWrappers::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
   //     MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, tmp,
   //                                        T_system_rhs, false);
   //     T_solution = tmp;
@@ -673,7 +696,7 @@ void CoupledTH<dim>::linear_solve_P() {
   // "\n";
 
   LA::SolverCG cg(solver_control, mpi_communicator);  // config cg
-  LA::MPI::PreconditionJacobi preconditioner(T_system_matrix);
+  LA::MPI::PreconditionJacobi preconditioner(P_system_matrix);
   cg.solve(P_system_matrix, distributed_P_solution, P_system_rhs,
            preconditioner);  // solve eq
 
@@ -702,13 +725,9 @@ void CoupledTH<dim>::linear_solve_T() {
   // "\n";
   LA::SolverGMRES solver(solver_control,
                          mpi_communicator);  // config solver
-  LA::MPI::PreconditionAMG preconditioner;
-  LA::MPI::PreconditionAMG::AdditionalData data;
-  data.symmetric_operator = false;
-  preconditioner.initialize(T_system_matrix, data);
 
-  // LA::PreconditionJacobi preconditioner(T_system_matrix);  // precond
-  // preconditioner.initialize(T_system_matrix, 1.0);      // initialize precond
+  LA::PreconditionJacobi preconditioner(T_system_matrix);  // precond
+
   solver.solve(T_system_matrix, distributed_T_solution, T_system_rhs,
                preconditioner);  // solve eq
 
