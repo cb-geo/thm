@@ -400,6 +400,23 @@ void CoupledTH<dim>::assemble_P_system() {
       // local ->globe
       cell->get_dof_indices(P_local_dof_indices);
 
+      // apply local dirichlet boundary
+      for (unsigned int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; ++bd_i) {
+
+        P_boundary.get_bd_i(bd_i);
+        P_boundary.set_time(time);
+        P_boundary.set_boundary_id(*(EquationData::g_P_bnd_id + bd_i));
+        std::map<types::global_dof_index, double> P_bd_values;
+        VectorTools::interpolate_boundary_values(
+            dof_handler, *(EquationData::g_P_bnd_id + bd_i), P_boundary,
+            P_bd_values);  // i is boundary index
+        // LA::MPI::Vector tmp(locally_owned_dofs, locally_relevant_dofs,
+        // mpi_communicator);
+        MatrixTools::local_apply_boundary_values(
+            P_bd_values, P_local_dof_indices, P_cell_matrix, P_cell_rhs, false);
+        // P_locally_relevant_solution = tmp;
+      }
+
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
         for (unsigned int j = 0; j < dofs_per_cell; ++j) {
           P_system_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
@@ -413,25 +430,27 @@ void CoupledTH<dim>::assemble_P_system() {
   P_system_matrix.compress(VectorOperation::add);
   P_system_rhs.compress(VectorOperation::add);
 
-  // ADD DIRICHLET BOUNDARY
-  {
+  // // ADD DIRICHLET BOUNDARY
+  // {
 
-    for (unsigned int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; ++bd_i) {
+  //   for (unsigned int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; ++bd_i)
+  //   {
 
-      P_boundary.get_bd_i(bd_i);
-      P_boundary.set_time(time);
-      P_boundary.set_boundary_id(*(EquationData::g_P_bnd_id + bd_i));
-      std::map<types::global_dof_index, double> P_bd_values;
-      VectorTools::interpolate_boundary_values(
-          dof_handler, *(EquationData::g_P_bnd_id + bd_i), P_boundary,
-          P_bd_values);  // i is boundary index
-      LA::MPI::Vector tmp(locally_owned_dofs, locally_relevant_dofs,
-                          mpi_communicator);
-      MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, tmp,
-                                         P_system_rhs, false);
-      P_locally_relevant_solution = tmp;
-    }
-  }
+  //     P_boundary.get_bd_i(bd_i);
+  //     P_boundary.set_time(time);
+  //     P_boundary.set_boundary_id(*(EquationData::g_P_bnd_id + bd_i));
+  //     std::map<types::global_dof_index, double> P_bd_values;
+  //     VectorTools::interpolate_boundary_values(
+  //         dof_handler, *(EquationData::g_P_bnd_id + bd_i), P_boundary,
+  //         P_bd_values);  // i is boundary index
+  //     // LA::MPI::Vector tmp(locally_owned_dofs, locally_relevant_dofs,
+  //     // mpi_communicator);
+  //     MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix,
+  //                                        P_locally_relevant_solution,
+  //                                        P_system_rhs, false);
+  //     // P_locally_relevant_solution = tmp;
+  //   }
+  // }
   timer.tock("assemble_P_system");
 }
 
@@ -606,11 +625,9 @@ void CoupledTH<dim>::assemble_T_system() {
       VectorTools::interpolate_boundary_values(
           dof_handler, *(EquationData::g_T_bnd_id + bd_i), T_boundary,
           T_bd_values);  // i is boundary index
-      LA::MPI::Vector tmp(locally_owned_dofs, locally_relevant_dofs,
-                          mpi_communicator);
-      MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, tmp,
+      MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix,
+                                         T_locally_relevant_solution,
                                          T_system_rhs, false);
-      T_locally_relevant_solution = tmp;
     }
   }
 
