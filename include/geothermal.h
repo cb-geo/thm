@@ -709,10 +709,14 @@ void CoupledTH<dim>::output_results(LA::MPI::Vector& solution,
 
   data_out.add_data_vector(solution, var_name);
 
-  Vector<float> subdomain(triangulation.n_active_cells());
-  for (unsigned int i = 0; i < subdomain.size(); ++i)
-    subdomain(i) = triangulation.locally_owned_subdomain();
-  data_out.add_data_vector(subdomain, "subdomain");
+  std::vector<types::subdomain_id> partition_int(
+      triangulation.n_active_cells());
+
+  GridTools::get_subdomain_association(triangulation, partition_int);
+
+  const Vector<double> partitioning(partition_int.begin(), partition_int.end());
+
+  data_out.add_data_vector(partitioning, "partitioning");
 
   data_out.build_patches();
 
