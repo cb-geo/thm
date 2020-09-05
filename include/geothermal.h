@@ -596,9 +596,10 @@ void CoupledTH<dim>::assemble_T_system() {
       }
       // local ->globe
       cell->get_dof_indices(T_local_dof_indices);
-      T_constraints.distribute_local_to_global(T_cell_matrix, T_cell_rhs,
-                                               T_local_dof_indices,
-                                               T_system_matrix, T_system_rhs);
+      // T_constraints.distribute_local_to_global(T_cell_matrix, T_cell_rhs,
+      //                                          T_local_dof_indices,
+      //                                          T_system_matrix,
+      //                                          T_system_rhs);
 
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
         for (unsigned int j = 0; j < dofs_per_cell; ++j) {
@@ -626,7 +627,8 @@ void CoupledTH<dim>::assemble_T_system() {
           dof_handler, *(EquationData::g_T_bnd_id + bd_i), T_boundary,
           T_bd_values);  // i is boundary index
       LA::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
-      MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, tmp,
+      MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix,
+                                         P_locally_relevant_solution,
                                          T_system_rhs, false);
       P_locally_relevant_solution = tmp;
     }
@@ -683,7 +685,7 @@ void CoupledTH<dim>::linear_solve_T() {
   solver.solve(T_system_matrix, distributed_T_solution, T_system_rhs,
                preconditioner);  // solve eq
 
-  T_constraints.distribute(distributed_T_solution);
+  // T_constraints.distribute(distributed_T_solution);
   T_locally_relevant_solution = distributed_T_solution;
 
   old_T_locally_relevant_solution = distributed_T_solution;
@@ -709,14 +711,10 @@ void CoupledTH<dim>::output_results(LA::MPI::Vector& solution,
 
   data_out.add_data_vector(solution, var_name);
 
-  std::vector<types::subdomain_id> partition_int(
-      triangulation.n_active_cells());
-
-  GridTools::get_subdomain_association(triangulation, partition_int);
-
-  const Vector<double> partitioning(partition_int.begin(), partition_int.end());
-
-  data_out.add_data_vector(partitioning, "partitioning");
+  Vector<float> subdomain(triangulation.n_active_cells());
+  for (unsigned int i = 0; i < subdomain.size(); ++i)
+    subdomain(i) = triangulation.locally_owned_subdomain();
+  data_out.add_data_vector(subdomain, "subdomain");
 
   data_out.build_patches();
 
