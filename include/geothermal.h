@@ -310,7 +310,8 @@ void CoupledTH<dim>::assemble_P_system() {
   // boudnary condition and source term
   EquationData::PressureSourceTerm<dim> P_source_term;
   EquationData::PressureNeumanBoundaryValues<dim> QP_boundary;
-  // EquationData::PressureDirichletBoundaryValues<dim> P_boundary;
+  EquationData::PressureDirichletBoundaryValues<dim> P_boundary;
+
   // loop for cell
   typename DoFHandler<dim>::active_cell_iterator cell =
                                                      dof_handler.begin_active(),
