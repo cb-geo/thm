@@ -673,18 +673,15 @@ void CoupledTH<dim>::linear_solve_P() {
   // "\n";
 
   LA::SolverCG cg(solver_control, mpi_communicator);  // config cg
-  LA::MPI::PreconditionAMG preconditioner;
-  LA::MPI::PreconditionAMG::AdditionalData data;
-  data.symmetric_operator = true;
-  preconditioner.initialize(P_system_matrix, data);
+  LA::MPI::PreconditionJacobi preconditioner(T_system_matrix);
   cg.solve(P_system_matrix, distributed_P_solution, P_system_rhs,
            preconditioner);  // solve eq
-
-  P_iteration_namber = solver_control.last_step();
 
   P_locally_relevant_solution = distributed_P_solution;
 
   old_P_locally_relevant_solution = distributed_P_solution;
+
+  P_iteration_namber = solver_control.last_step();
 
   pcout << "\nIterations required for convergence: " << P_iteration_namber
         << "\n";
