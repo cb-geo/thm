@@ -641,6 +641,7 @@ void CoupledTH<dim>::linear_solve_P() {
   timer.tick();
 
   LA::MPI::Vector distributed_P_solution(locally_owned_dofs, mpi_communicator);
+  distributed_P_solution = P_locally_relevant_solution;
   SolverControl solver_control(
       dof_handler.n_dofs(),
       P_tol_residual * P_system_rhs.l2_norm());  // setting for cg
