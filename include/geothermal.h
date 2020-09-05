@@ -455,7 +455,7 @@ void CoupledTH<dim>::assemble_P_system() {
       PETScWrappers::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
       MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, tmp,
                                          P_system_rhs, false);
-      P_solution = tmp;
+      P_locally_relevant_solution = tmp;
     }
   }
   timer.tock("assemble_P_system");
