@@ -647,7 +647,7 @@ void CoupledTH<dim>::assemble_T_system() {
       LA::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
       MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, tmp,
                                          T_system_rhs, false);
-      T_solution = tmp;
+      T_locally_relevant_solution = tmp;
     }
   }
 
