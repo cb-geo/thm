@@ -452,7 +452,7 @@ void CoupledTH<dim>::assemble_P_system() {
       VectorTools::interpolate_boundary_values(
           dof_handler, *(EquationData::g_P_bnd_id + bd_i), P_boundary,
           P_bd_values);  // i is boundary index
-      PETScWrappers::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
+      LA::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
       MatrixTools::apply_boundary_values(P_bd_values, P_system_matrix, tmp,
                                          P_system_rhs, false);
       P_locally_relevant_solution = tmp;
@@ -650,7 +650,7 @@ void CoupledTH<dim>::assemble_T_system() {
   //     VectorTools::interpolate_boundary_values(
   //         dof_handler, *(EquationData::g_T_bnd_id + bd_i), T_boundary,
   //         T_bd_values);  // i is boundary index
-  //     PETScWrappers::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
+  //     LA::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
   //     MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, tmp,
   //                                        T_system_rhs, false);
   //     T_solution = tmp;
