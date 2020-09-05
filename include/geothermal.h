@@ -660,7 +660,7 @@ void CoupledTH<dim>::linear_solve_P() {
   timer.tick();
 
   LA::MPI::Vector distributed_P_solution(locally_owned_dofs, mpi_communicator);
-  distributed_P_solution = P_solution;
+  distributed_P_solution = P_locally_relevant_solution;
 
   SolverControl solver_control(
       dof_handler.n_dofs(),
@@ -690,7 +690,7 @@ void CoupledTH<dim>::linear_solve_T() {
   cbgeo::Clock timer;
   timer.tick();
   LA::MPI::Vector distributed_T_solution(locally_owned_dofs, mpi_communicator);
-  distributed_T_solution = T_solution;
+  distributed_T_solution = P_locally_relevant_solution;
 
   SolverControl solver_control(
       std::max<std::size_t>(n_T_max_iteration, T_system_rhs.size()),
