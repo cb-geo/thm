@@ -110,7 +110,7 @@ class CoupledTH {
   IndexSet locally_owned_dofs;
   IndexSet locally_relevant_dofs;
 
-  AffineConstraints<double> T_constraints;
+  // AffineConstraints<double> T_constraints;
 
   const unsigned int degree;  // element degree
 
@@ -239,25 +239,25 @@ void CoupledTH<dim>::setup_T_system() {
 
   T_system_rhs.reinit(locally_owned_dofs, mpi_communicator);
 
-  // Setup boundary constraints
-  EquationData::TemperatureDirichletBoundaryValues<dim> T_boundary;
-  T_constraints.clear();
-  T_constraints.reinit(locally_relevant_dofs);
-  {
-    for (int bd_i = 0; bd_i < EquationData::g_num_T_bnd_id; ++bd_i) {
+  // // Setup boundary constraints
+  // EquationData::TemperatureDirichletBoundaryValues<dim> T_boundary;
+  // T_constraints.clear();
+  // T_constraints.reinit(locally_relevant_dofs);
+  // {
+  //   for (int bd_i = 0; bd_i < EquationData::g_num_T_bnd_id; ++bd_i) {
 
-      T_boundary.get_bd_i(bd_i);
-      T_boundary.set_time(time);
-      T_boundary.set_boundary_id(*(EquationData::g_T_bnd_id + bd_i));
-      VectorTools::interpolate_boundary_values(
-          dof_handler, *(EquationData::g_T_bnd_id + bd_i), T_boundary,
-          T_constraints);  // i is boundary index
-    }
-  }
-  T_constraints.close();
+  //     T_boundary.get_bd_i(bd_i);
+  //     T_boundary.set_time(time);
+  //     T_boundary.set_boundary_id(*(EquationData::g_T_bnd_id + bd_i));
+  //     VectorTools::interpolate_boundary_values(
+  //         dof_handler, *(EquationData::g_T_bnd_id + bd_i), T_boundary,
+  //         T_constraints);  // i is boundary index
+  //   }
+  // }
+  // T_constraints.close();
 
   DynamicSparsityPattern dsp(locally_relevant_dofs);
-  DoFTools::make_sparsity_pattern(dof_handler, dsp, T_constraints, false);
+  DoFTools::make_sparsity_pattern(dof_handler, dsp);
   SparsityTools::distribute_sparsity_pattern(
       dsp, locally_owned_dofs, mpi_communicator, locally_relevant_dofs);
 
@@ -270,10 +270,9 @@ template <int dim>
 void CoupledTH<dim>::assemble_P_system() {
   cbgeo::Clock timer;
   timer.tick();
-
-  // // reset matreix to zero  BECAUSE WE SETUP SYSTEM IN EACH TIME STEP SO IT
-  // IS NOT NECESSARY TO REINITALIZE IT. P_system_matrix = 0; P_system_rhs = 0;
-  // P_solution = 0;
+  P_system_matrix = 0;
+  P_system_rhs = 0;
+  P_locally_relevant_solution = 0;
 
   // Getting fe values
   FEValues<dim> fe_values(fe, quadrature_formula,
@@ -465,10 +464,10 @@ template <int dim>
 void CoupledTH<dim>::assemble_T_system() {
   cbgeo::Clock timer;
   timer.tick();
-  // reset matreix to zero NOT NECESSARY
-  // T_system_matrix = 0;
-  // T_system_rhs = 0;
-  // T_solution = 0;
+
+  T_system_matrix = 0;
+  T_system_rhs = 0;
+  T_locally_relevant_solution = 0;
 
   // Getting fe values
   FEValues<dim> fe_values(fe, quadrature_formula,
@@ -505,7 +504,7 @@ void CoupledTH<dim>::assemble_T_system() {
   // boudnary condition
   EquationData::TemperatureSourceTerm<dim> T_source_term;
   EquationData::TemperatureNeumanBoundaryValues<dim> QT_boundary;
-  // EquationData::TemperatureDirichletBoundaryValues<dim> T_boundary;
+  EquationData::TemperatureDirichletBoundaryValues<dim> T_boundary;
 
   // loop for cell
   typename DoFHandler<dim>::active_cell_iterator cell =
@@ -615,23 +614,18 @@ void CoupledTH<dim>::assemble_T_system() {
       }
       // local ->globe
       cell->get_dof_indices(T_local_dof_indices);
-      T_constraints.distribute_local_to_global(T_cell_matrix, T_cell_rhs,
-                                               T_local_dof_indices,
-                                               T_system_matrix, T_system_rhs);
+      // T_constraints.distribute_local_to_global(T_cell_matrix, T_cell_rhs,
+      //                                          T_local_dof_indices,
+      //                                          T_system_matrix,
+      //                                          T_system_rhs);
 
-      // for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-      //   for (unsigned int j = 0; j < dofs_per_cell; ++j) {
-      //     T_system_matrix.add(T_local_dof_indices[i], T_local_dof_indices[j],
-      //                         T_cell_matrix(i, j));  // mass_matrix
-      //     T_system_matrix.add(
-      //         T_local_dof_indices[i], T_local_dof_indices[j],
-      //         T_cell_matrix(i, j));  // striffness_matrix
-      //     T_system_matrix.add(
-      //         T_local_dof_indices[i], T_local_dof_indices[j],
-      //         T_cell_matrix(i, j));  // convection_matrix
-      //   }
-      //   T_system_rhs(T_local_dof_indices[i]) += T_cell_rhs(i);
-      // }
+      for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+        for (unsigned int j = 0; j < dofs_per_cell; ++j) {
+          T_system_matrix.add(T_local_dof_indices[i], T_local_dof_indices[j],
+                              T_cell_matrix(i, j));
+        }
+        T_system_rhs(T_local_dof_indices[i]) += T_cell_rhs(i);
+      }
     }
   }
 
@@ -639,23 +633,23 @@ void CoupledTH<dim>::assemble_T_system() {
   T_system_matrix.compress(VectorOperation::add);
   T_system_rhs.compress(VectorOperation::add);
 
-  // // ADD DIRICHLET BOUNDARY
-  // {
+  // ADD DIRICHLET BOUNDARY
+  {
 
-  //   for (int bd_i = 0; bd_i < EquationData::g_num_T_bnd_id; bd_i++) {
-  //     T_boundary.get_bd_i(bd_i);
-  //     T_boundary.set_time(time);
-  //     T_boundary.set_boundary_id(*(EquationData::g_T_bnd_id + bd_i));
-  //     std::map<types::global_dof_index, double> T_bd_values;
-  //     VectorTools::interpolate_boundary_values(
-  //         dof_handler, *(EquationData::g_T_bnd_id + bd_i), T_boundary,
-  //         T_bd_values);  // i is boundary index
-  //     LA::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
-  //     MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, tmp,
-  //                                        T_system_rhs, false);
-  //     T_solution = tmp;
-  //   }
-  // }
+    for (int bd_i = 0; bd_i < EquationData::g_num_T_bnd_id; bd_i++) {
+      T_boundary.get_bd_i(bd_i);
+      T_boundary.set_time(time);
+      T_boundary.set_boundary_id(*(EquationData::g_T_bnd_id + bd_i));
+      std::map<types::global_dof_index, double> T_bd_values;
+      VectorTools::interpolate_boundary_values(
+          dof_handler, *(EquationData::g_T_bnd_id + bd_i), T_boundary,
+          T_bd_values);  // i is boundary index
+      LA::MPI::Vector tmp(locally_owned_dofs, mpi_communicator);
+      MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, tmp,
+                                         T_system_rhs, false);
+      T_solution = tmp;
+    }
+  }
 
   timer.tock("assemble_T_system");
 }
@@ -666,6 +660,8 @@ void CoupledTH<dim>::linear_solve_P() {
   timer.tick();
 
   LA::MPI::Vector distributed_P_solution(locally_owned_dofs, mpi_communicator);
+  distributed_P_solution = P_solution;
+
   SolverControl solver_control(
       dof_handler.n_dofs(),
       P_tol_residual * P_system_rhs.l2_norm());  // setting for cg
@@ -694,6 +690,7 @@ void CoupledTH<dim>::linear_solve_T() {
   cbgeo::Clock timer;
   timer.tick();
   LA::MPI::Vector distributed_T_solution(locally_owned_dofs, mpi_communicator);
+  distributed_T_solution = T_solution;
 
   SolverControl solver_control(
       std::max<std::size_t>(n_T_max_iteration, T_system_rhs.size()),
@@ -712,7 +709,7 @@ void CoupledTH<dim>::linear_solve_T() {
   solver.solve(T_system_matrix, distributed_T_solution, T_system_rhs,
                preconditioner);  // solve eq
 
-  T_constraints.distribute(distributed_T_solution);
+  // T_constraints.distribute(distributed_T_solution);
   T_locally_relevant_solution = distributed_T_solution;
 
   old_T_locally_relevant_solution = distributed_T_solution;
