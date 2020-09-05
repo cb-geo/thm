@@ -699,12 +699,12 @@ void CoupledTH<dim>::linear_solve_T() {
   // "\n";
   LA::SolverGMRES solver(solver_control,
                          mpi_communicator);  // config solver
-  LA::MPI::PreconditionAMG preconditioner;
-  LA::MPI::PreconditionAMG::AdditionalData data;
-  data.symmetric_operator = false;
-  preconditioner.initialize(T_system_matrix, data);
+  // LA::MPI::PreconditionAMG preconditioner;
+  // LA::MPI::PreconditionAMG::AdditionalData data;
+  // data.symmetric_operator = false;
+  // preconditioner.initialize(T_system_matrix, data);
 
-  // LA::PreconditionJacobi preconditioner(T_system_matrix);  // precond
+  LA::MPI::PreconditionJacobi preconditioner(T_system_matrix);  // precond
   // preconditioner.initialize(T_system_matrix, 1.0);      // initialize precond
   solver.solve(T_system_matrix, distributed_T_solution, T_system_rhs,
                preconditioner);  // solve eq
