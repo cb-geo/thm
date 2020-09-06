@@ -247,10 +247,9 @@ void CoupledTH<dim>::assemble_P_system() {
   std::vector<double> QP_bd_values(n_face_q_points);
 
   //  local element matrix
-  FullMatrix<double> P_cell_mass_matrix(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> P_cell_stiffness_matrix(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> P_cell_matrix(dofs_per_cell, dofs_per_cell);
-  Vector<double> P_cell_rhs(dofs_per_cell);
+  FullMatrix<double> P_local_mass_matrix(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> P_local_stiffness_matrix(dofs_per_cell, dofs_per_cell);
+  Vector<double> P_local_rhs(dofs_per_cell);
   std::vector<types::global_dof_index> P_local_dof_indices(dofs_per_cell);
 
   // boudnary condition and source term
@@ -266,14 +265,10 @@ void CoupledTH<dim>::assemble_P_system() {
     if (cell->is_locally_owned()) {  // only assemble the system on cells that
                                      // acturally
                                      // belong to this MPI process
-      // local ->globe
-      cell->get_dof_indices(P_local_dof_indices);
-
       // initialization
-      P_cell_mass_matrix = 0;
-      P_cell_stiffness_matrix = 0;
-      P_cell_matrix = 0;
-      P_cell_rhs = 0;
+      P_local_mass_matrix = 0;
+      P_local_stiffness_matrix = 0;
+      P_local_rhs = 0;
       fe_values.reinit(cell);
 
       // get the values at gauss point old_T_sol_values from the system
@@ -313,27 +308,24 @@ void CoupledTH<dim>::assemble_P_system() {
           for (unsigned int j = 0; j < dofs_per_cell; ++j) {
             const Tensor<1, dim> grad_phi_j_P = fe_values.shape_grad(j, q);
             const double phi_j_P = fe_values.shape_value(j, q);
-            P_cell_mass_matrix(i, j) += (phi_i_P * phi_j_P * fe_values.JxW(q));
-            P_cell_stiffness_matrix(i, j) +=
+            P_local_mass_matrix(i, j) += (phi_i_P * phi_j_P * fe_values.JxW(q));
+            P_local_stiffness_matrix(i, j) +=
                 (time_step * EquationData::g_perm * EquationData::g_B_w *
                  grad_phi_i_P * grad_phi_j_P * fe_values.JxW(q));
-            P_cell_matrix(i, j) =
-                P_cell_mass_matrix(i, j) + P_cell_stiffness_matrix(i, j);
           }
-          P_cell_rhs(i) += (time_step * phi_i_P * P_source_values[q] +
-                            time_step * grad_phi_i_P * (Point<dim>(0, 0, 1)) *
-                                (-EquationData::g_B_w * EquationData::g_perm *
-                                 EquationData::g_P_grad) +
-                            phi_i_P * old_P_sol_values[q]) *
-                           fe_values.JxW(q);
+          P_local_rhs(i) += (time_step * phi_i_P * P_source_values[q] +
+                             time_step * grad_phi_i_P * (Point<dim>(0, 0, 1)) *
+                                 (-EquationData::g_B_w * EquationData::g_perm *
+                                  EquationData::g_P_grad) +
+                             phi_i_P * old_P_sol_values[q]) *
+                            fe_values.JxW(q);
         }
       }
 
+      // APPLIED NEWMAN BOUNDARY CONDITION
       for (unsigned int face_no = 0;
            face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
         if (cell->at_boundary(face_no)) {
-
-          // APPLIED NEWMAN BOUNDARY CONDITION
           if (EquationData::g_num_QP_bnd_id > 0) {
             for (unsigned int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id;
                  ++bd_i) {
@@ -365,25 +357,29 @@ void CoupledTH<dim>::assemble_P_system() {
                       P_face_quadrature_coord[2]);
 
                   for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-                    P_cell_rhs(i) += -time_step * EquationData::g_B_w *
-                                     (fe_face_values.shape_value(i, q) *
-                                      QP_bd_values[q] * fe_face_values.JxW(q));
+                    P_local_rhs(i) += -time_step * EquationData::g_B_w *
+                                      (fe_face_values.shape_value(i, q) *
+                                       QP_bd_values[q] * fe_face_values.JxW(q));
                   }
                 }
               }
             }
           }
-
-          // APPLIED DIRECHLET BOUNDARY CONDITION
         }
       }
+
+      // local ->globe
+      cell->get_dof_indices(P_local_dof_indices);
 
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
         for (unsigned int j = 0; j < dofs_per_cell; ++j) {
           P_system_matrix.add(P_local_dof_indices[i], P_local_dof_indices[j],
-                              P_cell_matrix(i, j));  // sys_mass matrix
+                              P_local_mass_matrix(i, j));  // sys_mass matrix
+          P_system_matrix.add(
+              P_local_dof_indices[i], P_local_dof_indices[j],
+              P_local_stiffness_matrix(i, j));  // sys_stiff matrix
         }
-        P_system_rhs(P_local_dof_indices[i]) += P_cell_rhs(i);
+        P_system_rhs(P_local_dof_indices[i]) += P_local_rhs(i);
       }
     }
   }
@@ -449,10 +445,10 @@ void CoupledTH<dim>::assemble_T_system() {
   std::vector<double> QT_bd_values(n_face_q_points);
 
   //  local element matrix
-  FullMatrix<double> T_cell_mass_matrix(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> T_cell_stiffness_matrix(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> T_cell_convection_matrix(dofs_per_cell, dofs_per_cell);
-  Vector<double> T_cell_rhs(dofs_per_cell);
+  FullMatrix<double> T_local_mass_matrix(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> T_local_stiffness_matrix(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> T_local_convection_matrix(dofs_per_cell, dofs_per_cell);
+  Vector<double> T_local_rhs(dofs_per_cell);
   std::vector<types::global_dof_index> T_local_dof_indices(dofs_per_cell);
 
   // boudnary condition
@@ -467,10 +463,10 @@ void CoupledTH<dim>::assemble_T_system() {
   for (; cell != endc; ++cell) {
     if (cell->is_locally_owned()) {
       // initialization
-      T_cell_mass_matrix = 0;
-      T_cell_stiffness_matrix = 0;
-      T_cell_convection_matrix = 0;
-      T_cell_rhs = 0;
+      T_local_mass_matrix = 0;
+      T_local_stiffness_matrix = 0;
+      T_local_convection_matrix = 0;
+      T_local_rhs = 0;
       fe_values.reinit(cell);
       // get the values at gauss point
       fe_values.get_function_values(old_T_solution, old_T_sol_values);
@@ -501,11 +497,11 @@ void CoupledTH<dim>::assemble_T_system() {
           for (unsigned int j = 0; j < dofs_per_cell; ++j) {
             const Tensor<1, dim> grad_phi_j_T = fe_values.shape_grad(j, q);
             const double phi_j_T = fe_values.shape_value(j, q);
-            T_cell_mass_matrix(i, j) += (phi_i_T * phi_j_T * fe_values.JxW(q));
-            T_cell_stiffness_matrix(i, j) +=
+            T_local_mass_matrix(i, j) += (phi_i_T * phi_j_T * fe_values.JxW(q));
+            T_local_stiffness_matrix(i, j) +=
                 time_step * (EquationData::g_lam / EquationData::g_c_T *
                              grad_phi_i_T * grad_phi_j_T * fe_values.JxW(q));
-            T_cell_convection_matrix(i, j) +=
+            T_local_convection_matrix(i, j) +=
                 time_step * EquationData::g_c_w / EquationData::g_c_T *
                 phi_i_T *
                 (-EquationData::g_perm *
@@ -514,7 +510,7 @@ void CoupledTH<dim>::assemble_T_system() {
                  grad_phi_j_T * fe_values.JxW(q));
           }
 
-          T_cell_rhs(i) +=
+          T_local_rhs(i) +=
               (time_step * T_source_values[q] + phi_i_T * old_T_sol_values[q]) *
               fe_values.JxW(q);
         }
@@ -553,9 +549,9 @@ void CoupledTH<dim>::assemble_T_system() {
                     T_face_quadrature_coord[2]);
 
                 for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-                  T_cell_rhs(i) += -time_step / EquationData::g_c_T *
-                                   fe_face_values.shape_value(i, q) *
-                                   QT_bd_values[q] * fe_face_values.JxW(q);
+                  T_local_rhs(i) += -time_step / EquationData::g_c_T *
+                                    fe_face_values.shape_value(i, q) *
+                                    QT_bd_values[q] * fe_face_values.JxW(q);
                 }
               }
             }
@@ -567,15 +563,15 @@ void CoupledTH<dim>::assemble_T_system() {
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
         for (unsigned int j = 0; j < dofs_per_cell; ++j) {
           T_system_matrix.add(T_local_dof_indices[i], T_local_dof_indices[j],
-                              T_cell_mass_matrix(i, j));  // mass_matrix
+                              T_local_mass_matrix(i, j));  // mass_matrix
           T_system_matrix.add(
               T_local_dof_indices[i], T_local_dof_indices[j],
-              T_cell_stiffness_matrix(i, j));  // striffness_matrix
+              T_local_stiffness_matrix(i, j));  // striffness_matrix
           T_system_matrix.add(
               T_local_dof_indices[i], T_local_dof_indices[j],
-              T_cell_convection_matrix(i, j));  // convection_matrix
+              T_local_convection_matrix(i, j));  // convection_matrix
         }
-        T_system_rhs(T_local_dof_indices[i]) += T_cell_rhs(i);
+        T_system_rhs(T_local_dof_indices[i]) += T_local_rhs(i);
       }
     }
   }
