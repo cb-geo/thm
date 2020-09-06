@@ -270,8 +270,10 @@ void CoupledTH<dim>::assemble_P_system() {
   timer.tick();
 
   // // reset matreix to zero  BECAUSE WE SETUP SYSTEM IN EACH TIME STEP SO IT
-  // IS NOT NECESSARY TO REINITALIZE IT. P_system_matrix = 0; P_system_rhs = 0;
-  // P_solution = 0;
+  // IS NOT NECESSARY TO REINITALIZE IT.
+  P_system_matrix = 0;
+  P_system_rhs = 0;
+  P_locally_relevant_solution = 0;
 
   // Getting fe values
   FEValues<dim> fe_values(fe, quadrature_formula,
@@ -460,9 +462,9 @@ void CoupledTH<dim>::assemble_T_system() {
   cbgeo::Clock timer;
   timer.tick();
   // reset matreix to zero NOT NECESSARY
-  // T_system_matrix = 0;
-  // T_system_rhs = 0;
-  // T_solution = 0;
+  T_system_matrix = 0;
+  T_system_rhs = 0;
+  P_locally_relevant_solution = 0;
 
   // Getting fe values
   FEValues<dim> fe_values(fe, quadrature_formula,
@@ -659,6 +661,9 @@ void CoupledTH<dim>::linear_solve_P() {
 
   P_iteration_namber = solver_control.last_step();
 
+  pcout << "\nIterations required for convergence: " << P_iteration_namber
+        << "\n";
+
   timer.tock("linear_solve_P");
 }
 
@@ -692,9 +697,8 @@ void CoupledTH<dim>::linear_solve_T() {
 
   T_iteration_namber = solver_control.last_step();
 
-  // pcout << " \nIterations required for convergence:    " <<
-  // T_iteration_namber
-  //       << "\n";
+  pcout << " \nIterations required for convergence:    " << T_iteration_namber
+        << "\n";
 
   timer.tock("linear_solve_T");
 }
@@ -767,7 +771,7 @@ void CoupledTH<dim>::run() {
 
   do {
 
-    // pcout << "\nTimestep " << timestep_number;
+    pcout << "\nTimestep " << timestep_number;
 
     binary_search_number = 1;
     initial_time_step =
@@ -794,22 +798,20 @@ void CoupledTH<dim>::run() {
         time_step = time_step / 2;
         ++binary_search_number;
       }
-      // pcout << "   \n Solver converged in " << binary_search_number
-      //       << " iterations." << std::endl;
+      pcout << "   \n Solver converged in " << binary_search_number
+            << " iterations." << std::endl;
 
     } while ((1 - theta) > 0.00001);
 
-    // pcout << "\nt=" << time << ", dt=" << time_step << '.' << std::endl;
+    pcout << "\nt=" << time << ", dt=" << time_step << '.' << std::endl;
 
     output_results(T_locally_relevant_solution, "T");
     output_results(P_locally_relevant_solution, "P");
 
-    // pcout << "\n" << std::endl << std::endl;
+    pcout << "\n" << std::endl << std::endl;
 
     timestep_number += 1;
 
-    setup_P_system();
-    setup_T_system();
     // MatrixOut matrix_out;
     // std::ofstream out_T_matrix
     // ("/outputfiles/2rhs_T_matrix_at_"+std::to_string(time));
@@ -821,5 +823,5 @@ void CoupledTH<dim>::run() {
   } while (time < period);
 
   timer.tock("solve_all");
-  // pcout << "\n" << std::endl << std::endl;
+  pcout << "\n" << std::endl << std::endl;
 }
