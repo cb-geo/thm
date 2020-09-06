@@ -277,10 +277,10 @@ void CoupledTH<dim>::assemble_P_system() {
   timer.tick();
 
   // // reset matreix to zero  BECAUSE WE SETUP SYSTEM IN EACH TIME STEP SO IT
-  // IS NOT NECESSARY TO REINITALIZE IT.
-  P_system_matrix = 0;
-  P_system_rhs = 0;
-  P_locally_relevant_solution = 0;
+  // // IS NOT NECESSARY TO REINITALIZE IT.
+  // P_system_matrix = 0;
+  // P_system_rhs = 0;
+  // P_locally_relevant_solution = 0;
 
   // Getting fe values
   FEValues<dim> fe_values(fe, quadrature_formula,
@@ -473,10 +473,10 @@ template <int dim>
 void CoupledTH<dim>::assemble_T_system() {
   cbgeo::Clock timer;
   timer.tick();
-  // reset matreix to zero NOT NECESSARY
-  T_system_matrix = 0;
-  T_system_rhs = 0;
-  T_locally_relevant_solution = 0;
+  // // reset matreix to zero NOT NECESSARY
+  // T_system_matrix = 0;
+  // T_system_rhs = 0;
+  // T_locally_relevant_solution = 0;
 
   // Getting fe values
   FEValues<dim> fe_values(fe, quadrature_formula,
@@ -674,6 +674,7 @@ void CoupledTH<dim>::linear_solve_P() {
       P_tol_residual * P_system_rhs.l2_norm());  // setting for cg
   // pcout<< "\n the l1 norm of the P_system is"<< P_system_matrix.l1_norm() <<
   // "\n";
+  distributed_P_solution = P_locally_relevant_solution;
 
   LA::SolverCG cg(solver_control, mpi_communicator);  // config cg
   LA::MPI::PreconditionJacobi preconditioner(T_system_matrix);
@@ -703,6 +704,8 @@ void CoupledTH<dim>::linear_solve_T() {
       T_tol_residual * T_system_rhs.l2_norm());  // setting for solver
   // pcout<< "\n the l1 norm of the T_system is"<< T_system_matrix.l1_norm() <<
   // "\n";
+
+  distributed_T_solution = T_locally_relevant_solution;
   LA::SolverGMRES solver(solver_control,
                          mpi_communicator);  // config solver
   // LA::MPI::PreconditionAMG preconditioner;
@@ -826,6 +829,9 @@ void CoupledTH<dim>::run() {
       }
       pcout << "   \n Solver converged in " << binary_search_number
             << " iterations." << std::endl;
+
+      setup_P_system();
+      setup_T_system();
 
     } while ((1 - theta) > 0.00001);
 
