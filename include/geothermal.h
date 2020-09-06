@@ -464,7 +464,7 @@ void CoupledTH<dim>::assemble_T_system() {
   // reset matreix to zero NOT NECESSARY
   T_system_matrix = 0;
   T_system_rhs = 0;
-  P_locally_relevant_solution = 0;
+  T_locally_relevant_solution = 0;
 
   // Getting fe values
   FEValues<dim> fe_values(fe, quadrature_formula,
