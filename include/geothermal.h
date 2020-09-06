@@ -125,7 +125,7 @@ class CoupledTH {
   LA::MPI::Vector P_locally_relevant_solution;  // P solution at n
   LA::MPI::Vector T_locally_relevant_solution;  // T solution at n
 
-  Vector old_P_locally_relevant_solution;           // P solution at n-1
+  Vector<double> old_P_locally_relevant_solution;   // P solution at n-1
   LA::MPI::Vector old_T_locally_relevant_solution;  // T solution at n-1
 
   double time;                   // t
