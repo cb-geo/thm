@@ -18,7 +18,6 @@ const double g_B_w = 1e5;           // bulk modulus of pores
 // std::vector<std::vector<double>> g_perm_list = {
 //     {0, 0}};  // permeablity list used for interpolation
 
-
 // Pressure seetings
 const int g_num_P_bnd_id = 5;  // numbers of  pressure boudnary condition id
 const int g_P_bnd_id[g_num_P_bnd_id] = {3, 8, 12, 13,
@@ -59,7 +58,7 @@ const char time_unit = 'd';
 const unsigned int n_g_P_max_iteration = 1000;
 const unsigned int n_g_T_max_iteration = 4000;
 const double g_P_tol_residual = 1e-8;
-const double g_T_tol_residual = 1e-8;
+const double g_T_tol_residual = 1e-10;
 
 // dimention of the input data file (parameters_for_interpolation.txt in
 // inputfiles is used in the example)
