@@ -776,7 +776,7 @@ void CoupledTH<dim>::run() {
     binary_search_number = 1;
     initial_time_step =
         time_sequence[timestep_number + 1] - time_sequence[timestep_number];
-    time_step = initial_time_step / 2;
+    time_step = initial_time_step;
     theta = 0;
 
     do {
