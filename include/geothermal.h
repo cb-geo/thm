@@ -207,8 +207,7 @@ void CoupledTH<dim>::make_grid_and_dofs() {
         << std::endl
         << std::endl;
 
-  old_P_locally_relevant_solution.reinit(
-      locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
+  old_P_locally_relevant_solution.reinit(locally_owned_dofs, mpi_communicator);
   old_T_locally_relevant_solution.reinit(
       locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
 }
