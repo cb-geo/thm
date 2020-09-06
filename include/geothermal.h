@@ -791,7 +791,7 @@ void CoupledTH<dim>::run() {
 
       time += time_step;
 
-      theta += pow(0.5, binary_search_number);
+      theta += pow(1, binary_search_number);
 
       if (P_iteration_namber > n_P_max_iteration / 2 ||
           T_iteration_namber > n_T_max_iteration / 2) {
