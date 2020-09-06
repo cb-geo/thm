@@ -278,9 +278,9 @@ void CoupledTH<dim>::assemble_P_system() {
 
   // // reset matreix to zero  BECAUSE WE SETUP SYSTEM IN EACH TIME STEP SO IT
   // // IS NOT NECESSARY TO REINITALIZE IT.
-  // P_system_matrix = 0;
-  // P_system_rhs = 0;
-  // P_locally_relevant_solution = 0;
+  P_system_matrix = 0;
+  P_system_rhs = 0;
+  P_locally_relevant_solution = 0;
 
   // Getting fe values
   FEValues<dim> fe_values(fe, quadrature_formula,
@@ -474,9 +474,9 @@ void CoupledTH<dim>::assemble_T_system() {
   cbgeo::Clock timer;
   timer.tick();
   // // reset matreix to zero NOT NECESSARY
-  // T_system_matrix = 0;
-  // T_system_rhs = 0;
-  // T_locally_relevant_solution = 0;
+  T_system_matrix = 0;
+  T_system_rhs = 0;
+  T_locally_relevant_solution = 0;
 
   // Getting fe values
   FEValues<dim> fe_values(fe, quadrature_formula,
@@ -687,10 +687,9 @@ void CoupledTH<dim>::linear_solve_P() {
 
   P_iteration_namber = solver_control.last_step();
 
+  timer.tock("linear_solve_P");
   pcout << "\nIterations required for P convergence: " << P_iteration_namber
         << "\n";
-
-  timer.tock("linear_solve_P");
 }
 
 template <int dim>
@@ -725,10 +724,10 @@ void CoupledTH<dim>::linear_solve_T() {
 
   T_iteration_namber = solver_control.last_step();
 
+  timer.tock("linear_solve_T");
+
   pcout << " \nIterations required for T convergence:    " << T_iteration_namber
         << "\n";
-
-  timer.tock("linear_solve_T");
 }
 
 // @sect4{<code>CoupledTH::output_results</code>}
@@ -788,8 +787,8 @@ void CoupledTH<dim>::run() {
 
   make_grid_and_dofs();
 
-  // setup_P_system();
-  // setup_T_system();
+  setup_P_system();
+  setup_T_system();
 
   VectorTools::interpolate(dof_handler,
                            EquationData::TemperatureInitialValues<dim>(),
@@ -810,9 +809,9 @@ void CoupledTH<dim>::run() {
 
     do {
 
-      setup_P_system();
+      // setup_P_system();
 
-      setup_T_system();
+      // setup_T_system();
 
       assemble_P_system();
 
@@ -831,10 +830,13 @@ void CoupledTH<dim>::run() {
         time_step = time_step / 2;
         ++binary_search_number;
       }
-      pcout << "   \n Solver converged in " << binary_search_number
-            << " time divisions." << std::endl;
+
+      pcout << "   \n theta  = " << theta << std::endl;
 
     } while ((1 - theta) > 0.00001);
+
+    pcout << "   \n Solver converged in " << binary_search_number
+          << " time divisions." << std::endl;
 
     timestep_number += 1;
 
