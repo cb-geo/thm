@@ -769,9 +769,6 @@ void CoupledTH<dim>::run() {
                            EquationData::PressureInitialValues<dim>(),
                            old_P_locally_relevant_solution);
 
-  output_results(old_T_locally_relevant_solution, "T");
-  output_results(old_P_locally_relevant_solution, "P");
-
   do {
 
     pcout << "\nTimestep " << timestep_number;
