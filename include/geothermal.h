@@ -125,7 +125,7 @@ class CoupledTH {
   LA::MPI::Vector P_locally_relevant_solution;  // P solution at n
   LA::MPI::Vector T_locally_relevant_solution;  // T solution at n
 
-  LA::MPI::Vector old_P_locally_relevant_solution;  // P solution at n-1
+  Vector old_P_locally_relevant_solution;           // P solution at n-1
   LA::MPI::Vector old_T_locally_relevant_solution;  // T solution at n-1
 
   double time;                   // t
@@ -207,7 +207,7 @@ void CoupledTH<dim>::make_grid_and_dofs() {
         << std::endl
         << std::endl;
 
-  old_P_locally_relevant_solution.reinit(locally_owned_dofs, mpi_communicator);
+  old_P_locally_relevant_solution.reinit(dof_handler.n_dofs());
   old_T_locally_relevant_solution.reinit(
       locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
 }
