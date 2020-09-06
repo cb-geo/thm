@@ -767,7 +767,7 @@ void CoupledTH<dim>::run() {
 
   do {
 
-    pcout << "\nTimestep " << timestep_number;
+    // pcout << "\nTimestep " << timestep_number;
 
     binary_search_number = 1;
     initial_time_step =
@@ -794,17 +794,17 @@ void CoupledTH<dim>::run() {
         time_step = time_step / 2;
         ++binary_search_number;
       }
-      pcout << "   \n Solver converged in " << binary_search_number
-            << " iterations." << std::endl;
+      // pcout << "   \n Solver converged in " << binary_search_number
+      //       << " iterations." << std::endl;
 
     } while ((1 - theta) > 0.00001);
 
-    pcout << "\nt=" << time << ", dt=" << time_step << '.' << std::endl;
+    // pcout << "\nt=" << time << ", dt=" << time_step << '.' << std::endl;
 
     output_results(T_locally_relevant_solution, "T");
     output_results(P_locally_relevant_solution, "P");
 
-    pcout << "\n" << std::endl << std::endl;
+    // pcout << "\n" << std::endl << std::endl;
 
     timestep_number += 1;
 
@@ -821,5 +821,5 @@ void CoupledTH<dim>::run() {
   } while (time < period);
 
   timer.tock("solve_all");
-  pcout << "\n" << std::endl << std::endl;
+  // pcout << "\n" << std::endl << std::endl;
 }
