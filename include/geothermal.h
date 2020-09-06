@@ -805,10 +805,14 @@ void CoupledTH<dim>::run() {
     binary_search_number = 1;
     initial_time_step =
         time_sequence[timestep_number + 1] - time_sequence[timestep_number];
-    time_step = initial_time_step;
+    time_step = initial_time_step / 2;
     theta = 0;
 
     do {
+
+      setup_P_system();
+
+      setup_T_system();
 
       assemble_P_system();
 
@@ -820,7 +824,7 @@ void CoupledTH<dim>::run() {
 
       time += time_step;
 
-      theta += pow(1, binary_search_number);
+      theta += pow(0.5, binary_search_number);
 
       if (P_iteration_namber > n_P_max_iteration / 2 ||
           T_iteration_namber > n_T_max_iteration / 2) {
@@ -829,9 +833,6 @@ void CoupledTH<dim>::run() {
       }
       pcout << "   \n Solver converged in " << binary_search_number
             << " iterations." << std::endl;
-
-      setup_P_system();
-      setup_T_system();
 
     } while ((1 - theta) > 0.00001);
 
