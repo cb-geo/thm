@@ -360,17 +360,19 @@ void CoupledTH<dim>::assemble_P_system() {
         }
       }
 
-      // APPLIED NEWMAN BOUNDARY CONDITION
+      // APPLY BOUNDARY CONDITION
       for (unsigned int face_no = 0;
            face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
         if (cell->at_boundary(face_no)) {
+
+          // APPLY NEWMAN BOUNDARY CONDITION
           for (int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id; ++bd_i) {
 
             if (cell->face(face_no)->boundary_id() ==
                 EquationData::g_QP_bnd_id[bd_i]) {
               fe_face_values.reinit(cell, face_no);
 
-              // get boundary condition
+              // get Neuman boundary condition
               QP_boundary.set_time(time);
               QP_boundary.set_boundary_id(*(EquationData::g_QP_bnd_id + bd_i));
               QP_boundary.value_list(fe_face_values.get_quadrature_points(),
@@ -394,28 +396,30 @@ void CoupledTH<dim>::assemble_P_system() {
               }
             }
           }
+
+          // apply local dirichlet boundary
+          for (unsigned int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id;
+               ++bd_i) {
+            if (cell->face(face_no)->boundary_id() ==
+                EquationData::g_P_bnd_id[bd_i]) {
+
+              P_boundary.get_bd_i(bd_i);
+              P_boundary.set_time(time);
+              P_boundary.set_boundary_id(*(EquationData::g_P_bnd_id + bd_i));
+              std::map<types::global_dof_index, double> P_bd_values;
+              VectorTools::interpolate_boundary_values(
+                  dof_handler, *(EquationData::g_P_bnd_id + bd_i), P_boundary,
+                  P_bd_values);  // i is boundary index
+              MatrixTools::local_apply_boundary_values(
+                  P_bd_values, P_local_dof_indices, P_cell_matrix, P_cell_rhs,
+                  false);
+            }
+          }
         }
       }
 
       // local ->globe
       cell->get_dof_indices(P_local_dof_indices);
-
-      // apply local dirichlet boundary
-      for (unsigned int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; ++bd_i) {
-
-        P_boundary.get_bd_i(bd_i);
-        P_boundary.set_time(time);
-        P_boundary.set_boundary_id(*(EquationData::g_P_bnd_id + bd_i));
-        std::map<types::global_dof_index, double> P_bd_values;
-        VectorTools::interpolate_boundary_values(
-            dof_handler, *(EquationData::g_P_bnd_id + bd_i), P_boundary,
-            P_bd_values);  // i is boundary index
-        // LA::MPI::Vector tmp(locally_owned_dofs, locally_relevant_dofs,
-        // mpi_communicator);
-        MatrixTools::local_apply_boundary_values(
-            P_bd_values, P_local_dof_indices, P_cell_matrix, P_cell_rhs, false);
-        // P_locally_relevant_solution = tmp;
-      }
 
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
         for (unsigned int j = 0; j < dofs_per_cell; ++j) {
