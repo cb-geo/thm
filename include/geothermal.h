@@ -670,16 +670,16 @@ void CoupledTH<dim>::linear_solve_P() {
 
   LA::MPI::Vector distributed_P_solution(locally_owned_dofs, mpi_communicator);
   SolverControl solver_control(
-      dof_handler.n_dofs(),
-      P_tol_residual * P_system_rhs.l2_norm());  // setting for cg
+      std::max<std::size_t>(n_P_max_iteration, P_system_rhs.size()),
+      P_tol_residual * P_system_rhs.l2_norm());  // setting for solver
   // pcout<< "\n the l1 norm of the P_system is"<< P_system_matrix.l1_norm() <<
   // "\n";
   distributed_P_solution = P_locally_relevant_solution;
 
-  LA::SolverCG cg(solver_control, mpi_communicator);  // config cg
+  LA::SolverGMRES solver(solver_control, mpi_communicator);  // config cg
   LA::MPI::PreconditionJacobi preconditioner(P_system_matrix);
-  cg.solve(P_system_matrix, distributed_P_solution, P_system_rhs,
-           preconditioner);  // solve eq
+  solver.solve(P_system_matrix, distributed_P_solution, P_system_rhs,
+               preconditioner);  // solve eq
 
   P_locally_relevant_solution = distributed_P_solution;
 
@@ -830,13 +830,13 @@ void CoupledTH<dim>::run() {
         time_step = time_step / 2;
         ++binary_search_number;
       }
-      
+
       pcout << "   \n theta  = " << theta << std::endl;
 
     } while ((1 - theta) > 0.00001);
 
     pcout << "   \n Solver converged in " << binary_search_number
-            << " time divisions." << std::endl;
+          << " time divisions." << std::endl;
 
     timestep_number += 1;
 
