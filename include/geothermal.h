@@ -265,6 +265,9 @@ void CoupledTH<dim>::assemble_P_system() {
     if (cell->is_locally_owned()) {  // only assemble the system on cells that
                                      // acturally
                                      // belong to this MPI process
+      // local ->globe
+      cell->get_dof_indices(P_local_dof_indices);
+
       // initialization
       P_cell_mass_matrix = 0;
       P_cell_stiffness_matrix = 0;
@@ -368,9 +371,6 @@ void CoupledTH<dim>::assemble_P_system() {
           }
         }
       }
-
-      // local ->globe
-      cell->get_dof_indices(P_local_dof_indices);
 
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
         for (unsigned int j = 0; j < dofs_per_cell; ++j) {
