@@ -125,8 +125,11 @@ class CoupledTH {
   LA::MPI::Vector P_locally_relevant_solution;  // P solution at n
   LA::MPI::Vector T_locally_relevant_solution;  // T solution at n
 
-  Vector<double> old_P_solution;  // P solution at n-1
-  Vector<double> old_T_solution;  // T solution at n-1
+  LA::MPI::Vector old_P_locally_relevant_solution;  // P solution at n -1
+  LA::MPI::Vector old_T_locally_relevant_solution;  // T solution at n -1
+
+  Vector<double> initial_P_solution;  // P solution at 0
+  Vector<double> initial_T_solution;  // T solution at 0
 
   double time;                   // t
   unsigned int timestep_number;  // n_t
@@ -207,8 +210,12 @@ void CoupledTH<dim>::make_grid_and_dofs() {
         << std::endl
         << std::endl;
 
-  old_P_solution.reinit(dof_handler.n_dofs());
-  old_T_solution.reinit(dof_handler.n_dofs());
+  initial_P_solution.reinit(dof_handler.n_dofs());
+  initial_T_solution.reinit(dof_handler.n_dofs());
+  old_P_locally_relevant_solution.reinit(
+      locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
+  old_T_locally_relevant_solution.reinit(
+      locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
 }
 
 template <int dim>
@@ -325,12 +332,22 @@ void CoupledTH<dim>::assemble_P_system() {
       P_cell_rhs = 0;
       fe_values.reinit(cell);
 
-      // get the values at gauss point old_T_sol_values from the system
-      // old_T_solution
-      fe_values.get_function_values(old_T_solution, old_T_sol_values);
-      fe_values.get_function_gradients(old_T_solution, old_T_sol_grads);
-      fe_values.get_function_values(old_P_solution, old_P_sol_values);
-      fe_values.get_function_gradients(old_P_solution, old_P_sol_grads);
+      // get the values at gauss point old solution from the system
+      if (time < 1e-8) {
+        fe_values.get_function_values(initial_T_solution, old_T_sol_values);
+        fe_values.get_function_gradients(initial_T_solution, old_T_sol_grads);
+        fe_values.get_function_values(initial_P_solution, old_P_sol_values);
+        fe_values.get_function_gradients(initial_P_solution, old_P_sol_grads);
+      } else {
+        fe_values.get_function_values(old_T_locally_relevant_solution,
+                                      old_T_sol_values);
+        fe_values.get_function_gradients(old_T_locally_relevant_solution,
+                                         old_T_sol_grads);
+        fe_values.get_function_values(old_P_locally_relevant_solution,
+                                      old_P_sol_values);
+        fe_values.get_function_gradients(old_P_locally_relevant_solution,
+                                         old_P_sol_grads);
+      }
 
       // get source term value at the gauss point
       P_source_term.set_time(time);
@@ -398,11 +415,6 @@ void CoupledTH<dim>::assemble_P_system() {
 
                 const auto P_face_quadrature_coord =
                     fe_face_values.quadrature_point(q);
-
-                // 1d interp
-                // EquationData::g_perm =
-                //     interpolate1d(EquationData::g_perm_list,
-                //                   P_face_quadrature_coord[2], false);
 
                 // 3d interp
                 EquationData::g_perm = data_interpolation.value(
@@ -513,11 +525,24 @@ void CoupledTH<dim>::assemble_T_system() {
       T_cell_matrix = 0;
       T_cell_rhs = 0;
       fe_values.reinit(cell);
-      // get the values at gauss point
-      fe_values.get_function_values(old_T_solution, old_T_sol_values);
-      fe_values.get_function_gradients(old_T_solution, old_T_sol_grads);
-      fe_values.get_function_values(old_P_solution, old_P_sol_values);
-      fe_values.get_function_gradients(old_P_solution, old_P_sol_grads);
+
+      // get the values at gauss point old solution from the system
+      if (time < 1e-8) {
+        fe_values.get_function_values(initial_T_solution, old_T_sol_values);
+        fe_values.get_function_gradients(initial_T_solution, old_T_sol_grads);
+        fe_values.get_function_values(initial_P_solution, old_P_sol_values);
+        fe_values.get_function_gradients(initial_P_solution, old_P_sol_grads);
+      } else {
+        fe_values.get_function_values(old_T_locally_relevant_solution,
+                                      old_T_sol_values);
+        fe_values.get_function_gradients(old_T_locally_relevant_solution,
+                                         old_T_sol_grads);
+        fe_values.get_function_values(old_P_locally_relevant_solution,
+                                      old_P_sol_values);
+        fe_values.get_function_gradients(old_P_locally_relevant_solution,
+                                         old_P_sol_grads);
+      }
+
       // get right hand side
       T_source_term.set_time(time);
       T_source_term.value_list(fe_values.get_quadrature_points(),
@@ -657,7 +682,7 @@ void CoupledTH<dim>::linear_solve_P() {
 
   P_locally_relevant_solution = distributed_P_solution;
 
-  old_P_solution = distributed_P_solution;
+  old_P_locally_relevant_solution = distributed_P_solution;
 
   P_iteration_namber = solver_control.last_step();
 
@@ -693,7 +718,7 @@ void CoupledTH<dim>::linear_solve_T() {
   // T_constraints.distribute(distributed_T_solution);
   T_locally_relevant_solution = distributed_T_solution;
 
-  old_T_solution = distributed_T_solution;
+  old_T_locally_relevant_solution = distributed_T_solution;
 
   T_iteration_namber = solver_control.last_step();
 
@@ -765,9 +790,10 @@ void CoupledTH<dim>::run() {
 
   VectorTools::interpolate(dof_handler,
                            EquationData::TemperatureInitialValues<dim>(),
-                           old_T_solution);
-  VectorTools::interpolate(
-      dof_handler, EquationData::PressureInitialValues<dim>(), old_P_solution);
+                           initial_T_solution);
+  VectorTools::interpolate(dof_handler,
+                           EquationData::PressureInitialValues<dim>(),
+                           initial_P_solution);
 
   do {
 
