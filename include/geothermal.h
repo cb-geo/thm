@@ -788,8 +788,8 @@ void CoupledTH<dim>::run() {
 
   make_grid_and_dofs();
 
-  setup_P_system();
-  setup_T_system();
+  // setup_P_system();
+  // setup_T_system();
 
   VectorTools::interpolate(dof_handler,
                            EquationData::TemperatureInitialValues<dim>(),
