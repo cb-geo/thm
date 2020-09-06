@@ -659,9 +659,6 @@ void CoupledTH<dim>::linear_solve_P() {
 
   P_iteration_namber = solver_control.last_step();
 
-  pcout << "\nIterations required for convergence: " << P_iteration_namber
-        << "\n";
-
   timer.tock("linear_solve_P");
 }
 
@@ -695,8 +692,9 @@ void CoupledTH<dim>::linear_solve_T() {
 
   T_iteration_namber = solver_control.last_step();
 
-  pcout << " \nIterations required for convergence:    " << T_iteration_namber
-        << "\n";
+  // pcout << " \nIterations required for convergence:    " <<
+  // T_iteration_namber
+  //       << "\n";
 
   timer.tock("linear_solve_T");
 }
