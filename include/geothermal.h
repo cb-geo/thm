@@ -687,7 +687,7 @@ void CoupledTH<dim>::linear_solve_P() {
 
   P_iteration_namber = solver_control.last_step();
 
-  pcout << "\nIterations required for convergence: " << P_iteration_namber
+  pcout << "\nIterations required for P convergence: " << P_iteration_namber
         << "\n";
 
   timer.tock("linear_solve_P");
@@ -725,7 +725,7 @@ void CoupledTH<dim>::linear_solve_T() {
 
   T_iteration_namber = solver_control.last_step();
 
-  pcout << " \nIterations required for convergence:    " << T_iteration_namber
+  pcout << " \nIterations required for T convergence:    " << T_iteration_namber
         << "\n";
 
   timer.tock("linear_solve_T");
@@ -832,9 +832,11 @@ void CoupledTH<dim>::run() {
         ++binary_search_number;
       }
       pcout << "   \n Solver converged in " << binary_search_number
-            << " iterations." << std::endl;
+            << " time divisions." << std::endl;
 
     } while ((1 - theta) > 0.00001);
+
+    timestep_number += 1;
 
     pcout << "\nt=" << time << ", dt=" << time_step << '.' << std::endl;
 
@@ -842,8 +844,6 @@ void CoupledTH<dim>::run() {
     output_results(P_locally_relevant_solution, "P");
 
     pcout << "\n" << std::endl << std::endl;
-
-    timestep_number += 1;
 
     // MatrixOut matrix_out;
     // std::ofstream out_T_matrix
