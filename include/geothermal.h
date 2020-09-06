@@ -677,7 +677,7 @@ void CoupledTH<dim>::linear_solve_P() {
   distributed_P_solution = P_locally_relevant_solution;
 
   LA::SolverCG cg(solver_control, mpi_communicator);  // config cg
-  LA::MPI::PreconditionJacobi preconditioner(P_system_matrix);
+  LA::MPI::PreconditionJacobi preconditioner(T_system_matrix);
   cg.solve(P_system_matrix, distributed_P_solution, P_system_rhs,
            preconditioner);  // solve eq
 
@@ -830,13 +830,13 @@ void CoupledTH<dim>::run() {
         time_step = time_step / 2;
         ++binary_search_number;
       }
-
+      
       pcout << "   \n theta  = " << theta << std::endl;
 
-    } while ((1 - theta) > 0.0000001);
+    } while ((1 - theta) > 0.00001);
 
     pcout << "   \n Solver converged in " << binary_search_number
-          << " time divisions." << std::endl;
+            << " time divisions." << std::endl;
 
     timestep_number += 1;
 
