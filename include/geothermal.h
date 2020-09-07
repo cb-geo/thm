@@ -261,6 +261,11 @@ void CoupledTH<dim>::assemble_P_system() {
   typename DoFHandler<dim>::active_cell_iterator cell =
                                                      dof_handler.begin_active(),
                                                  endc = dof_handler.end();
+  double duration1 = 0.;
+  double duration2 = 0.;
+  double duration3 = 0.;
+  double duration4 = 0.;
+
   for (; cell != endc; ++cell) {
     if (cell->is_locally_owned()) {  // only assemble the system on cells that
                                      // acturally
@@ -282,6 +287,8 @@ void CoupledTH<dim>::assemble_P_system() {
       P_source_term.set_time(time);
       P_source_term.value_list(fe_values.get_quadrature_points(),
                                P_source_values);  // 一列q个
+
+      auto t1 = std::chrono::high_resolution_clock::now();
 
       // loop for q_point ASSMBLING CELL METRIX (weak form equation writing)
       for (unsigned int q = 0; q < n_q_points; ++q) {
@@ -321,6 +328,12 @@ void CoupledTH<dim>::assemble_P_system() {
                             fe_values.JxW(q);
         }
       }
+
+      auto t2 = std::chrono::high_resolution_clock::now();
+      duration1 +=
+          std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1)
+              .count();
+      auto tt1 = std::chrono::high_resolution_clock::now();
 
       // APPLIED NEWMAN BOUNDARY CONDITION
       for (unsigned int face_no = 0;
@@ -368,8 +381,15 @@ void CoupledTH<dim>::assemble_P_system() {
         }
       }
 
+      auto tt2 = std::chrono::high_resolution_clock::now();
+      duration2 +=
+          std::chrono::duration_cast<std::chrono::microseconds>(tt2 - tt1)
+              .count();
+
       // local ->globe
       cell->get_dof_indices(P_local_dof_indices);
+
+      auto ttt1 = std::chrono::high_resolution_clock::now();
 
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
         for (unsigned int j = 0; j < dofs_per_cell; ++j) {
@@ -381,6 +401,11 @@ void CoupledTH<dim>::assemble_P_system() {
         }
         P_system_rhs(P_local_dof_indices[i]) += P_local_rhs(i);
       }
+
+      auto ttt2 = std::chrono::high_resolution_clock::now();
+      duration3 +=
+          std::chrono::duration_cast<std::chrono::microseconds>(ttt2 - ttt1)
+              .count();
     }
   }
 
@@ -388,6 +413,8 @@ void CoupledTH<dim>::assemble_P_system() {
   P_system_rhs.compress(VectorOperation::add);
 
   // // ADD DIRICLET BOUNDARY
+
+  auto tttt1 = std::chrono::high_resolution_clock::now();
   {
 
     for (unsigned int bd_i = 0; bd_i < EquationData::g_num_P_bnd_id; ++bd_i) {
@@ -405,6 +432,24 @@ void CoupledTH<dim>::assemble_P_system() {
       P_solution = tmp;
     }
   }
+  auto tttt2 = std::chrono::high_resolution_clock::now();
+  duration4 +=
+      std::chrono::duration_cast<std::chrono::microseconds>(tttt2 - tttt1)
+          .count();
+
+  std::cout << "\n"
+            << "pressure duration1"
+            << ": " << duration1 / 1000 << " ms";
+  std::cout << "\n"
+            << "pressure duration2"
+            << ": " << duration2 / 1000 << " ms";
+  std::cout << "\n"
+            << "pressure duration3"
+            << ": " << duration3 / 1000 << " ms";
+  std::cout << "\n"
+            << "pressure duration3"
+            << ": " << duration4 / 1000 << " ms";
+
   timer.tock("assemble_P_system");
 }
 
