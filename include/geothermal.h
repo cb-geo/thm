@@ -438,16 +438,16 @@ void CoupledTH<dim>::assemble_P_system() {
           .count();
 
   std::cout << "\n"
-            << "pressure duration1"
+            << "computing cell matrix and rhs"
             << ": " << duration1 / 1000 << " ms";
   std::cout << "\n"
-            << "pressure duration2"
+            << "apply neuman boundary "
             << ": " << duration2 / 1000 << " ms";
   std::cout << "\n"
-            << "pressure duration3"
+            << "assembling system matrix"
             << ": " << duration3 / 1000 << " ms";
   std::cout << "\n"
-            << "pressure duration3"
+            << "apply dirichlet boundary"
             << ": " << duration4 / 1000 << " ms";
 
   timer.tock("assemble_P_system");
