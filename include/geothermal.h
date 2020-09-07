@@ -333,12 +333,13 @@ void CoupledTH<dim>::assemble_P_system() {
     if (cell->is_locally_owned()) {  // only assemble the system on cells that
                                      // acturally
                                      // belong to this MPI process
+
+      auto t1 = std::chrono::high_resolution_clock::now();
+
       // initialization
       P_cell_matrix = 0;
       P_cell_rhs = 0;
       fe_values.reinit(cell);
-
-      auto t1 = std::chrono::high_resolution_clock::now();
 
       // get the values at gauss point old solution from the system
       if (time < 1e-8) {
