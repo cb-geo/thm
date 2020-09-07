@@ -405,10 +405,6 @@ void CoupledTH<dim>::assemble_P_system() {
           std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1)
               .count();
 
-      if (cell == 0 || cell == endc) {
-        timer.tock("system matrix");
-        pcout << "\n" << std::endl << std::endl;
-      }
       auto tt1 = std::chrono::high_resolution_clock::now();
 
       // APPLIED NEWMAN BOUNDARY CONDITION
