@@ -80,6 +80,7 @@ const double g_T_tol_residual = 1e-10;
 // inputfiles is used in the example)
 const int dimension = 3;
 // dimension in x, y and z directions
+std::string mesh_file_name = "inputfiles/new_build.msh";
 std::string file_name_interpolation =
     "inputfiles/parameters_for_interpolation.txt";
 // number of sample point in x directin, y direction and z direction
