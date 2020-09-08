@@ -83,8 +83,8 @@ const int dimension = 3;
 std::string file_name_interpolation =
     "inputfiles/parameters_for_interpolation.txt";
 // number of sample point in x directin, y direction and z direction
-const int dimension_x = 20;
-const int dimension_y = 10;
-const int dimension_z = 5;
+const int dimension_x = 40;
+const int dimension_y = 20;
+const int dimension_z = 10;
 
 }  // namespace EquationData
