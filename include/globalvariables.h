@@ -34,7 +34,7 @@ const double g_Qb_lateral = 0;  // wellbore temperature
 
 // Temperature seetings
 const int g_num_T_bnd_id = 10;
-const int g_T_bnd_id[g_num_T_bnd_id] = {13, 3, 1, 2, 4, 5, 7, 8, 11311, 11312};
+const int g_T_bnd_id[g_num_T_bnd_id] = {23, 3, 1, 2, 4, 5, 7, 8, 11311, 11312};
 
 const double g_Tb_well = 273.15 + 25;  // wellbore temperature
 const double g_Tb_top = 273.15 + 15;   // termperature at the top of model
