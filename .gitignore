@@ -67,3 +67,4 @@ build/*
 *.vscode/*
 grid-1.eps
 outputfiles/*
+inputfiles/*
