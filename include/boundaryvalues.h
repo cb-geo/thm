@@ -111,7 +111,7 @@ double TemperatureDirichletBoundaryValues<dim>::value(
            abs(g_Tb_well - (g_Tb_top + g_T_grad * (0. - p[2]))) *
                sin(2 * 3.1415927 * time / period_);
     // return g_Tb_well;
-  } else if (bd_i_ == 1 || bd_i_ == 2) {
+  } else if (bd_i_ == 1) {
     return g_Tb_top + g_T_grad * (0. - p[2]);
   } else {
     return g_Tb_seabed_top + g_T_seabed_grad * (0. - p[2]);

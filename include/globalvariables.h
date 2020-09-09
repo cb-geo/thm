@@ -18,7 +18,7 @@ const double g_B_w = 1e5;           // bulk modulus of pores
 
 const int g_num_P_bnd_id = 8;  // numbers of  pressure boudnary condition id
 const int g_P_bnd_id[g_num_P_bnd_id] = {
-    1, 2, 4, 5, 7, 8, 9051, 9052};  // pressure boundary condition id
+    1, 2, 4, 5, 7, 8, 11311, 11312};  // pressure boundary condition id
 
 const double g_Pb_top = 0;           // pressure at the top of model
 const double g_P_grad = 1000 * 9.8;  // pressure gradient in vertial direction
@@ -27,14 +27,14 @@ const double g_P_grad_x = 1000 * 9.8 * 10 / 2000;  // 2000m drops ten meters
 // Velocity settings
 
 const int g_num_QP_bnd_id = 4;  // numbers of velocity boudnary condition id
-const int g_QP_bnd_id[g_num_QP_bnd_id] = {1, 4, 9051,
-                                          9052};  // velocity  boundary
+const int g_QP_bnd_id[g_num_QP_bnd_id] = {1, 4, 11311,
+                                          11312};  // velocity  boundary
 
 const double g_Qb_lateral = 0;  // wellbore temperature
 
 // Temperature seetings
-const int g_num_T_bnd_id = 11;
-const int g_T_bnd_id[g_num_T_bnd_id] = {13, 9, 3, 1, 2, 4, 5, 7, 8, 9051, 9052};
+const int g_num_T_bnd_id = 10;
+const int g_T_bnd_id[g_num_T_bnd_id] = {13, 3, 1, 2, 4, 5, 7, 8, 11311, 11312};
 
 const double g_Tb_well = 273.15 + 25;  // wellbore temperature
 const double g_Tb_top = 273.15 + 15;   // termperature at the top of model
@@ -42,13 +42,13 @@ const double g_Tb_bottom = 273.15 + 18;
 const double g_Tb_seabed_top = 273.15 + 15;  // termperature at the top of model
 const double g_Tb_seabed_bottom = g_Tb_bottom;
 const double g_T_grad = (g_Tb_bottom - g_Tb_top) /
-                        60.96;  // temperature gradient in verital direction
+                        100;  // temperature gradient in verital direction
 const double g_T_seabed_grad = (g_Tb_seabed_bottom - g_Tb_seabed_top) / 60.96;
 
 // Heat flow rate settins
 
-const int g_num_QT_bnd_id = 2;  // numbers of velocity boudnary condition id
-const int g_QT_bnd_id[g_num_QT_bnd_id] = {6, 10};  // velocity  boundary
+const int g_num_QT_bnd_id = 1;  // numbers of velocity boudnary condition id
+const int g_QT_bnd_id[g_num_QT_bnd_id] = {6};  // velocity  boundary
 
 const double g_QT_well = 0;  // wellbore temperature
 const double g_QT_top = -g_lam * g_T_grad;
