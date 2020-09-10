@@ -43,7 +43,7 @@ const double g_Tb_seabed_top = 273.15 + 15;  // termperature at the top of model
 const double g_Tb_seabed_bottom = g_Tb_bottom;
 const double g_T_grad = (g_Tb_bottom - g_Tb_top) /
                         100;  // temperature gradient in verital direction
-const double g_T_seabed_grad = (g_Tb_seabed_bottom - g_Tb_seabed_top) / 60.96;
+const double g_T_seabed_grad = (g_Tb_seabed_bottom - g_Tb_seabed_top) / 100;
 
 // Heat flow rate settins
 
