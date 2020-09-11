@@ -27,8 +27,8 @@ const double g_P_grad_x = 1000 * 9.8 * 10 / 2000;  // 2000m drops ten meters
 // Velocity settings
 
 const int g_num_QP_bnd_id = 4;  // numbers of velocity boudnary condition id
-const int g_QP_bnd_id[g_num_QP_bnd_id] = {1, 4, 11311,
-                                          11312};  // velocity  boundary
+const int g_QP_bnd_id[g_num_QP_bnd_id] = {2，5，7, 8};
+;  // velocity  boundary
 
 const double g_Qb_lateral = 0;  // wellbore temperature
 
