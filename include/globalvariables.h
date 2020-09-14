@@ -22,7 +22,7 @@ const int g_P_bnd_id[g_num_P_bnd_id] = {
 
 const double g_Pb_top = 0;           // pressure at the top of model
 const double g_P_grad = 1000 * 9.8;  // pressure gradient in vertial direction
-const double g_P_grad_x = 1000 * 9.8 * 8 / 2000;  // 2000m drops ten meters
+const double g_P_grad_x = 1000 * 9.8 * 1 / 2000;  // 2000m drops ten meters
 
 // Velocity settings
 
@@ -66,18 +66,18 @@ const bool is_linspace = false;
 //     1980, 2070, 2160, 2250, 2340, 2430, 2520, 2610, 2700, 2790, 2880,
 //     2970, 3060, 3150, 3240, 3330, 3420, 3510, 3600};
 
-// // for cyclic
-// const int g_n_time_step = 13;  // simulation time
-// const double g_total_time = 86400 * 360;  // simulation time
-// const double g_period = 86400 * 360;      // for periodic load
-// std::vector<double> g_time_sequence = {0,   30,  60,  90,  120, 150, 180,
-//                                        210, 240, 270, 300, 330, 360};
+// for cyclic
+const int g_n_time_step = 13;  // simulation time
+const double g_total_time = 86400 * 360;  // simulation time
+const double g_period = 86400 * 360;      // for periodic load
+std::vector<double> g_time_sequence = {0,   30,  60,  90,  120, 150, 180,
+                                       210, 240, 270, 300, 330, 360};
 
 // // for const
-const int g_n_time_step = 10;             // simulation time
-const double g_total_time = 86400 * 180;  // simulation time
-const double g_period = 86400 * 1;        // for periodic load
-std::vector<double> g_time_sequence = {0, 1, 2, 7, 14, 30, 60, 90, 120, 180};
+// const int g_n_time_step = 10;             // simulation time
+// const double g_total_time = 86400 * 180;  // simulation time
+// const double g_period = 86400 * 1;        // for periodic load
+// std::vector<double> g_time_sequence = {0, 1, 2, 7, 14, 30, 60, 90, 120, 180};
 
 const char time_unit = 'd';
 const unsigned int n_g_P_max_iteration = 1000;
