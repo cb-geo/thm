@@ -730,7 +730,7 @@ void CoupledTH<dim>::linear_solve_P() {
   // LA::SolverGMRES solver(solver_control, mpi_communicator);  // config cg
   LA::SolverCG solver(solver_control, mpi_communicator);  // config cg
   // LA::MPI::PreconditionJacobi preconditioner(P_system_matrix);
-  LA::MPI::PreconditionJacobi preconditioner(P_system_matrix);
+  LA::MPI::PreconditionBlockJacobi preconditioner(P_system_matrix);
   solver.solve(P_system_matrix, distributed_P_solution, P_system_rhs,
                preconditioner);  // solve eq
 
