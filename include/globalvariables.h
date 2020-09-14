@@ -58,7 +58,7 @@ const double g_QT_bottom = g_lam * g_T_grad;
 const bool is_linspace = false;
 const double g_total_time = 86400 * 360;  // simulation time
 
-const int g_n_time_step = 13;             // simulation time
+const int g_n_time_step = 13;  // simulation time
 
 // // for long term
 // const double g_period = 86400 * 360;      // for periodic load
@@ -74,14 +74,14 @@ const int g_n_time_step = 13;             // simulation time
 //                                        210, 240, 270, 300, 330, 360};
 
 // // for const
-const double g_period = 86400 * 1;      // for periodic load
+const double g_period = 86400 * 1;  // for periodic load
 std::vector<double> g_time_sequence = {0,  0.5, 1,  2,   5,   7,  14,
                                        30, 60,  90, 120, 150, 180};
 
 const char time_unit = 'd';
-const unsigned int n_g_P_max_iteration = 4000;
+const unsigned int n_g_P_max_iteration = 1000;
 const unsigned int n_g_T_max_iteration = 4000;
-const double g_P_tol_residual = 1e-8;
+const double g_P_tol_residual = 1e-10;
 const double g_T_tol_residual = 1e-10;
 
 // dimention of the input data file (parameters_for_interpolation.txt in
