@@ -75,8 +75,8 @@ const int g_n_time_step = 13;  // simulation time
 
 // // for const
 const double g_period = 86400 * 1;  // for periodic load
-std::vector<double> g_time_sequence = {0,  0.5, 1,  2,   5,   7,  14,
-                                       30, 60,  90, 120, 150, 180};
+std::vector<double> g_time_sequence = {0,  0.2, 0.5, 1,  2,   5,   7,  14,
+                                       30, 60,  90, 120, 180};
 
 const char time_unit = 'd';
 const unsigned int n_g_P_max_iteration = 1000;
