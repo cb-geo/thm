@@ -76,6 +76,7 @@ const bool is_linspace = false;
 // // for const
 const int g_n_time_step = 10;             // simulation time
 const double g_total_time = 86400 * 180;  // simulation time
+const double g_period = 86400 * 1;        // for periodic load
 std::vector<double> g_time_sequence = {0, 1, 2, 7, 14, 30, 60, 90, 120, 180};
 
 const char time_unit = 'd';
