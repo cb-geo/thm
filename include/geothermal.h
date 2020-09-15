@@ -513,7 +513,7 @@ void CoupledTH<dim>::assemble_P_system() {
   //           << "apply dirichlet boundary"
   //           << ": " << duration4 / 1000 << " ms";
 
-  timer.tock("assemble_P_system\n");
+  timer.tock("assemble_P_system");
 }
 
 template <int dim>
