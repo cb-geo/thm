@@ -92,22 +92,6 @@ DEAL_II_INITIALIZE_CACHED_VARIABLES()
 PROJECT(${TARGET})
 DEAL_II_INVOKE_AUTOPILOT()
 
-# MPI  
-if(NOT PETSC_MPIUNI) 
-find_package(MPI) 
-set(MPI_LIB "${MPI_CXX_LIBRARIES}" CACHE FILEPATH "MPI library" FORCE) 
-set(MPI_INC "${MPI_CXX_INCLUDE_PATH}") 
-mark_as_advanced(FORCE MPI_EXTRA_LIBRARY MPI_LIBRARY) 
-else() 
-message(STATUS "Using MPIUNI from PETSc") 
-set(MPI_LIB "${MUMPS_SEQ}") 
-set(MPI_INC "${PETSC_MPIUNI_INC}") 
-endif() 
-set(MPI_LIB "${MPI_LIB}" CACHE FILEPATH "MPI library") 
-set(MPI_INC "${MPI_INC}" CACHE PATH "MPI headers") 
-include_directories(${MPI_INC}) 
-link_libraries(${MPI_LIB}) 
-
 #add_library(lthm SHARED ${thm_src})
 
 # add_executable(geothm ${thm_SOURCE_DIR}/src/main.cc)
