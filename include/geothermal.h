@@ -119,7 +119,9 @@ class CoupledTH {
   double P_tol_residual = EquationData::g_P_tol_residual;
   double T_tol_residual = EquationData::g_T_tol_residual;
 
-  Interpolation<3> data_interpolation;
+  Interpolation<3> perm_interpolation;
+  Interpolation<3> therm_interpolation;
+  Interpolation<3> capa_interpolation;
 
   MPI_Comm mpi_communicator;
   const unsigned int n_mpi_processes;
@@ -148,9 +150,15 @@ CoupledTH<dim>::CoupledTH(const unsigned int degree)  // initialization
       this_mpi_process(Utilities::MPI::this_mpi_process(mpi_communicator)),
       pcout(std::cout,
             (this_mpi_process == 0)),  // output the results at process 0
-      data_interpolation(EquationData::dimension_x, EquationData::dimension_y,
+      perm_interpolation(EquationData::dimension_x, EquationData::dimension_y,
                          EquationData::dimension_z,
-                         EquationData::file_name_interpolation) {
+                         EquationData::perm_file_name_interpolation),
+      therm_interpolation(EquationData::dimension_x, EquationData::dimension_y,
+                          EquationData::dimension_z,
+                          EquationData::therm_file_name_interpolation),
+      capa_interpolation(EquationData::dimension_x, EquationData::dimension_y,
+                         EquationData::dimension_z,
+                         EquationData::capa_file_name_interpolation) {
   if (EquationData::is_linspace) {
     total_time = EquationData::g_total_time;
     n_time_step = EquationData::g_n_time_step;
@@ -299,7 +307,7 @@ void CoupledTH<dim>::assemble_P_system() {
         //     EquationData::g_perm_list, P_quadrature_coord[2], false);  //
         //     step-5
 
-        EquationData::g_perm = data_interpolation.value(P_quadrature_coord[0],
+        EquationData::g_perm = perm_interpolation.value(P_quadrature_coord[0],
                                                         P_quadrature_coord[1],
                                                         P_quadrature_coord[2]);
 
@@ -348,7 +356,7 @@ void CoupledTH<dim>::assemble_P_system() {
                 //     interpolate1d(EquationData::g_perm_list,
                 //                   P_face_quadrature_coord[2], false);  //
                 //                   step-5
-                EquationData::g_perm = data_interpolation.value(
+                EquationData::g_perm = perm_interpolation.value(
                     P_face_quadrature_coord[0], P_face_quadrature_coord[1],
                     P_face_quadrature_coord[2]);
 
@@ -480,10 +488,15 @@ void CoupledTH<dim>::assemble_T_system() {
         // EquationData::g_perm = interpolate1d(
         //     EquationData::g_perm_list, T_quadrature_coord[2], false);  //
         //     step-5
-        EquationData::g_perm = data_interpolation.value(T_quadrature_coord[0],
+        EquationData::g_perm = perm_interpolation.value(T_quadrature_coord[0],
                                                         T_quadrature_coord[1],
                                                         T_quadrature_coord[2]);
-
+        EquationData::g_lam = therm_interpolation.value(T_quadrature_coord[0],
+                                                        T_quadrature_coord[1],
+                                                        T_quadrature_coord[2]);
+        EquationData::g_c_T = capa_interpolation.value(T_quadrature_coord[0],
+                                                       T_quadrature_coord[1],
+                                                       T_quadrature_coord[2]);
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           const Tensor<1, dim> grad_phi_i_T = fe_values.shape_grad(i, q);
           const double phi_i_T = fe_values.shape_value(i, q);
@@ -534,9 +547,12 @@ void CoupledTH<dim>::assemble_T_system() {
                 //     interpolate1d(EquationData::g_perm_list,
                 //                   T_face_quadrature_coord[2], false);  //
                 //                   step-5
-                EquationData::g_perm = data_interpolation.value(
+                EquationData::g_perm = perm_interpolation.value(
                     T_face_quadrature_coord[0], T_face_quadrature_coord[1],
                     T_face_quadrature_coord[2]);
+                EquationData::g_c_T = capa_interpolation.value(
+                    T_quadrature_coord[0], T_quadrature_coord[1],
+                    T_quadrature_coord[2]);
 
                 for (unsigned int i = 0; i < dofs_per_cell; ++i) {
                   T_local_rhs(i) += -time_step / EquationData::g_c_T *
