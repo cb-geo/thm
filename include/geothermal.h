@@ -551,8 +551,8 @@ void CoupledTH<dim>::assemble_T_system() {
                     T_face_quadrature_coord[0], T_face_quadrature_coord[1],
                     T_face_quadrature_coord[2]);
                 EquationData::g_c_T = capa_interpolation.value(
-                    T_quadrature_coord[0], T_quadrature_coord[1],
-                    T_quadrature_coord[2]);
+                    T_face_quadrature_coord[0], T_face_quadrature_coord[1],
+                    T_face_quadrature_coord[2]);
 
                 for (unsigned int i = 0; i < dofs_per_cell; ++i) {
                   T_local_rhs(i) += -time_step / EquationData::g_c_T *
