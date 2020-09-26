@@ -323,10 +323,19 @@ void CoupledTH<dim>::assemble_P_system() {
   typename DoFHandler<dim>::active_cell_iterator cell =
                                                      dof_handler.begin_active(),
                                                  endc = dof_handler.end();
+
+  double duration1 = 0.;
+  double duration2 = 0.;
+  double duration3 = 0.;
+  double duration4 = 0.;
+
   for (; cell != endc; ++cell) {
     if (cell->is_locally_owned()) {  // only assemble the system on cells that
                                      // acturally
                                      // belong to this MPI process
+
+      auto t1 = std::chrono::high_resolution_clock::now();
+
       // initialization
       P_cell_matrix = 0;
       P_cell_rhs = 0;
@@ -359,10 +368,6 @@ void CoupledTH<dim>::assemble_P_system() {
 
         const auto P_quadrature_coord = fe_values.quadrature_point(q);
 
-        // 1d interp
-        // EquationData::g_perm = interpolate1d(
-        //     EquationData::g_perm_list, P_quadrature_coord[2], false);
-
         // 3d interp
         EquationData::g_perm = data_interpolation.value(P_quadrature_coord[0],
                                                         P_quadrature_coord[1],
@@ -394,6 +399,13 @@ void CoupledTH<dim>::assemble_P_system() {
                            fe_values.JxW(q);
         }
       }
+
+      auto t2 = std::chrono::high_resolution_clock::now();
+      duration1 +=
+          std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1)
+              .count();
+
+      auto tt1 = std::chrono::high_resolution_clock::now();
 
       // APPLIED NEWMAN BOUNDARY CONDITION
       for (unsigned int face_no = 0;
@@ -432,8 +444,15 @@ void CoupledTH<dim>::assemble_P_system() {
         }
       }
 
+      auto tt2 = std::chrono::high_resolution_clock::now();
+      duration2 +=
+          std::chrono::duration_cast<std::chrono::microseconds>(tt2 - tt1)
+              .count();
+
       // local ->globe
       cell->get_dof_indices(P_local_dof_indices);
+
+      auto ttt1 = std::chrono::high_resolution_clock::now();
 
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
         for (unsigned int j = 0; j < dofs_per_cell; ++j) {
@@ -442,12 +461,18 @@ void CoupledTH<dim>::assemble_P_system() {
         }
         P_system_rhs(P_local_dof_indices[i]) += P_cell_rhs(i);
       }
+
+      auto ttt2 = std::chrono::high_resolution_clock::now();
+      duration3 +=
+          std::chrono::duration_cast<std::chrono::microseconds>(ttt2 - ttt1)
+              .count();
     }
   }
 
   P_system_matrix.compress(VectorOperation::add);
   P_system_rhs.compress(VectorOperation::add);
 
+  auto tttt1 = std::chrono::high_resolution_clock::now();
   // ADD DIRICHLET BOUNDARY
   {
 
@@ -466,6 +491,26 @@ void CoupledTH<dim>::assemble_P_system() {
       P_locally_relevant_solution = tmp;
     }
   }
+
+  auto tttt2 = std::chrono::high_resolution_clock::now();
+
+  duration4 +=
+      std::chrono::duration_cast<std::chrono::microseconds>(tttt2 - tttt1)
+          .count();
+
+  std::cout << "\n"
+            << "computing cell matrix and rhs"
+            << ": " << duration1 / 1000 << " ms";
+  std::cout << "\n"
+            << "apply neuman boundary "
+            << ": " << duration2 / 1000 << " ms";
+  std::cout << "\n"
+            << "assembling system matrix"
+            << ": " << duration3 / 1000 << " ms";
+  std::cout << "\n"
+            << "apply dirichlet boundary"
+            << ": " << duration4 / 1000 << " ms";
+
   timer.tock("assemble_P_system");
 }
 
