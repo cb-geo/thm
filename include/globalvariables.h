@@ -43,7 +43,7 @@ const double g_Tb_seabed_bottom = g_Tb_bottom;
 const double g_T_grad = (g_Tb_bottom - g_Tb_top) /
                         100;  // temperature gradient in verital direction
 const double g_T_seabed_grad = (g_Tb_seabed_bottom - g_Tb_seabed_top) / 100;
-const double g_Tb_well = g_Tb_top + g_T_grad * 55;  // wellbore temperature
+const double g_Tb_well = g_Tb_top + g_T_grad * 59;  // wellbore temperature
 // Heat flow rate settins
 
 const int g_num_QT_bnd_id = 1;  // numbers of velocity boudnary condition id
