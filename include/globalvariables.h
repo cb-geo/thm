@@ -57,8 +57,8 @@ const double g_Tb_well = g_Tb_top + g_T_grad * 60;  // wellbore temperature
 
 // Heat flow rate settins for injection
 const int g_num_QT_bnd_id = 0;
-const int g_QT_bnd_id[g_num_QT_bnd_id] = {0};  // velocity  boundary
-const double g_QT_well = 0;                    // wellbore temperature
+const int g_QT_bnd_id[1] = {-1};  // velocity  boundary
+const double g_QT_well = 0;       // wellbore temperature
 const double g_QT_top = 0;
 const double g_QT_bottom = 0;
 
