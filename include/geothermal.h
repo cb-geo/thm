@@ -523,7 +523,7 @@ void CoupledTH<dim>::assemble_T_system() {
       }
 
       // APPLIED NEUMAN BOUNDARY CONDITION
-      if (g_num_QT_bnd_id != 0) {
+      if (EquationData::g_num_QT_bnd_id != 0) {
         for (unsigned int face_no = 0;
              face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
           if (cell->at_boundary(face_no)) {
