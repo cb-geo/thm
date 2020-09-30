@@ -107,12 +107,16 @@ double TemperatureDirichletBoundaryValues<dim>::value(
   const double time = this->get_time();
 
   if (bd_i_ == 0) {
-    return g_Tb_top + 10 * sin(2 * 3.1415927 * time / period_);
-    // return g_Tb_well;
+    if (time <= period_ / 2) {
+      return g_Tb_well + 13;
+    } else {
+      return g_Tb_well - 13;
+    }
+
   } else if (bd_i_ == 1) {
+    return g_Tb_top;
+  } else {
     return g_Tb_top + g_T_grad * (0. - p[2]);
-  } else if (bd_i_ == 2) {
-    return g_Tb_top + 10 * sin(2 * 3.1415927 * time / period_);
   }
 }
 
@@ -151,7 +155,7 @@ double TemperatureNeumanBoundaryValues<dim>::value(
   // Assert(dim == 3, ExcNotImplemented());
 
   const double time = this->get_time();
-  return g_QT_top;
+  return g_QT_bottom;
 }
 
 // template <int dim>

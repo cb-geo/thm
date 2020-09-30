@@ -802,7 +802,8 @@ void CoupledTH<dim>::run() {
 
     timestep_number += 1;
 
-    pcout << "\nt=" << time << ", dt=" << time_step << '.' << std::endl;
+    pcout << "\nt=" << time / 3600 / 24 << ", dt=" << time_step << '.'
+          << std::endl;
 
     output_results(T_solution, "T");
     output_results(P_solution, "P");
