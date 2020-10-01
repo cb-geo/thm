@@ -21,7 +21,7 @@ const int g_P_bnd_id[g_num_P_bnd_id] = {
 
 const double g_Pb_top = 0;           // pressure at the top of model
 const double g_P_grad = 1000 * 9.8;  // pressure gradient in vertial direction
-const double g_P_grad_x = 1000 * 9.8 * 10 / 2000;  // 2000m drops ten meters
+const double g_P_grad_x = 1000 * 9.8 * 1 / 2000;  // 2000m drops ten meters
 
 // Velocity settings
 const int g_num_QP_bnd_id = 4;  // numbers of velocity boudnary condition id
