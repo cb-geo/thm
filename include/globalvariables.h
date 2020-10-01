@@ -21,7 +21,7 @@ const int g_P_bnd_id[g_num_P_bnd_id] = {
 
 const double g_Pb_top = 0;           // pressure at the top of model
 const double g_P_grad = 1000 * 9.8;  // pressure gradient in vertial direction
-const double g_P_grad_x = 1000 * 9.8 * 1 / 2000;  // 2000m drops ten meters
+const double g_P_grad_x = 1000 * 9.8 * 10 / 2000;  // 2000m drops ten meters
 
 // Velocity settings
 const int g_num_QP_bnd_id = 4;  // numbers of velocity boudnary condition id
@@ -38,6 +38,11 @@ const int g_T_bnd_id[g_num_T_bnd_id] = {23, 6, 3};
 // 11312};
 
 const double g_Tb_top = 273.15 + 14.3;  // termperature at the top of model
+std::vector<std::vector<double>> g_Tb_top_seasonal = {
+    {86400 * 30 * 0, 14.5}, {86400 * 30 * 1, 15.5},  {86400 * 30 * 2, 15.5},
+    {86400 * 30 * 3, 16.5}, {86400 * 30 * 4, 17},    {86400 * 30 * 5, 17},
+    {86400 * 30 * 6, 14.5}, {86400 * 30 * 7, 11},    {86400 * 30 * 8, 11},
+    {86400 * 30 * 9, 12.5}, {86400 * 30 * 10, 13.5}, {86400 * 30 * 11, 13.5}};
 const double g_T_grad = 0.03;  // temperature gradient in verital direction
 const double g_T_seabed_grad = g_T_grad;
 const double g_Tb_bottom = g_Tb_top * g_T_grad * 100;

@@ -114,6 +114,7 @@ double TemperatureDirichletBoundaryValues<dim>::value(
     }
 
   } else if (bd_i_ == 1) {
+    // return interpolate1d(g_Tb_top_seasonal, time, false);
     return g_Tb_top;
   } else {
     return g_Tb_top + g_T_grad * (0. - p[2]);
