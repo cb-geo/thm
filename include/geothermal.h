@@ -491,12 +491,13 @@ void CoupledTH<dim>::assemble_T_system() {
         EquationData::g_perm = perm_interpolation.value(T_quadrature_coord[0],
                                                         T_quadrature_coord[1],
                                                         T_quadrature_coord[2]);
-        EquationData::g_lam = therm_interpolation.value(T_quadrature_coord[0],
-                                                        T_quadrature_coord[1],
-                                                        T_quadrature_coord[2]);
-        EquationData::g_c_T = capa_interpolation.value(T_quadrature_coord[0],
-                                                       T_quadrature_coord[1],
-                                                       T_quadrature_coord[2]);
+        // EquationData::g_lam =
+        // therm_interpolation.value(T_quadrature_coord[0],
+        //                                                 T_quadrature_coord[1],
+        //                                                 T_quadrature_coord[2]);
+        // EquationData::g_c_T = capa_interpolation.value(T_quadrature_coord[0],
+        //                                                T_quadrature_coord[1],
+        //                                                T_quadrature_coord[2]);
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           const Tensor<1, dim> grad_phi_i_T = fe_values.shape_grad(i, q);
           const double phi_i_T = fe_values.shape_value(i, q);
@@ -551,9 +552,9 @@ void CoupledTH<dim>::assemble_T_system() {
                   EquationData::g_perm = perm_interpolation.value(
                       T_face_quadrature_coord[0], T_face_quadrature_coord[1],
                       T_face_quadrature_coord[2]);
-                  EquationData::g_c_T = capa_interpolation.value(
-                      T_face_quadrature_coord[0], T_face_quadrature_coord[1],
-                      T_face_quadrature_coord[2]);
+                  // EquationData::g_c_T = capa_interpolation.value(
+                  //     T_face_quadrature_coord[0], T_face_quadrature_coord[1],
+                  //     T_face_quadrature_coord[2]);
 
                   for (unsigned int i = 0; i < dofs_per_cell; ++i) {
                     T_local_rhs(i) += -time_step / EquationData::g_c_T *
