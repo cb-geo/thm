@@ -73,7 +73,7 @@ const double g_QT_bottom = 0;
 const bool is_linspace = false;
 const double g_total_time = 86400 * 180;  // simulation time
 const double g_period = 86400 * 360;      // for periodic load
-const int g_n_time_step = 7;              // simulation time
+const int g_n_time_step = 13;             // simulation time
 // std::vector<double> g_time_sequence = {
 //     0,    90,   180,  270,  360,  450,  540,  630,  720,  810,  900,
 //     990,  1080, 1170, 1260, 1350, 1440, 1530, 1620, 1710, 1800, 1890,
@@ -81,7 +81,8 @@ const int g_n_time_step = 7;              // simulation time
 //     2970, 3060, 3150, 3240, 3330, 3420, 3510, 3600};
 // std::vector<double> g_time_sequence = {0,   30,  60,  90,  120, 150, 180,
 //                                        210, 240, 270, 300, 330, 360};
-std::vector<double> g_time_sequence = {0, 30, 60, 90, 120, 150, 180};
+std::vector<double> g_time_sequence = {0,  0.5, 1,  2,   5,   7,  14,
+                                       30, 60,  90, 120, 150, 180};
 
 const char time_unit = 'd';
 const unsigned int n_g_P_max_iteration = 1000;
