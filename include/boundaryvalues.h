@@ -108,9 +108,9 @@ double TemperatureDirichletBoundaryValues<dim>::value(
 
   if (bd_i_ == 0) {
     if (time <= period_ / 2) {
-      return g_Tb_well + 13;
+      return g_Tb_well + 10;
     } else {
-      return g_Tb_well - 13;
+      return g_Tb_well - 10;
     }
 
   } else if (bd_i_ == 1) {
