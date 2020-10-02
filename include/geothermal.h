@@ -332,38 +332,41 @@ void CoupledTH<dim>::assemble_P_system() {
       }
 
       // APPLIED NEWMAN BOUNDARY CONDITION
-      for (unsigned int face_no = 0;
-           face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
-        if (cell->at_boundary(face_no)) {
-          for (int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id; ++bd_i) {
+      if (EquationData::g_num_QP_bnd_id != 0) {
+        for (unsigned int face_no = 0;
+             face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
+          if (cell->at_boundary(face_no)) {
+            for (int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id; ++bd_i) {
 
-            if (cell->face(face_no)->boundary_id() ==
-                EquationData::g_QP_bnd_id[bd_i]) {
-              fe_face_values.reinit(cell, face_no);
+              if (cell->face(face_no)->boundary_id() ==
+                  EquationData::g_QP_bnd_id[bd_i]) {
+                fe_face_values.reinit(cell, face_no);
 
-              // get boundary condition
-              QP_boundary.get_bd_i(bd_i);
-              QP_boundary.set_time(time);
-              QP_boundary.set_boundary_id(*(EquationData::g_QP_bnd_id + bd_i));
-              QP_boundary.value_list(fe_face_values.get_quadrature_points(),
-                                     QP_bd_values);
+                // get boundary condition
+                QP_boundary.get_bd_i(bd_i);
+                QP_boundary.set_time(time);
+                QP_boundary.set_boundary_id(
+                    *(EquationData::g_QP_bnd_id + bd_i));
+                QP_boundary.value_list(fe_face_values.get_quadrature_points(),
+                                       QP_bd_values);
 
-              for (unsigned int q = 0; q < n_face_q_points; ++q) {
+                for (unsigned int q = 0; q < n_face_q_points; ++q) {
 
-                const auto P_face_quadrature_coord =
-                    fe_face_values.quadrature_point(q);
-                // EquationData::g_perm =
-                //     interpolate1d(EquationData::g_perm_list,
-                //                   P_face_quadrature_coord[2], false);  //
-                //                   step-5
-                EquationData::g_perm = perm_interpolation.value(
-                    P_face_quadrature_coord[0], P_face_quadrature_coord[1],
-                    P_face_quadrature_coord[2]);
+                  const auto P_face_quadrature_coord =
+                      fe_face_values.quadrature_point(q);
+                  // EquationData::g_perm =
+                  //     interpolate1d(EquationData::g_perm_list,
+                  //                   P_face_quadrature_coord[2], false);  //
+                  //                   step-5
+                  EquationData::g_perm = perm_interpolation.value(
+                      P_face_quadrature_coord[0], P_face_quadrature_coord[1],
+                      P_face_quadrature_coord[2]);
 
-                for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-                  P_local_rhs(i) += -time_step * EquationData::g_B_w *
-                                    (fe_face_values.shape_value(i, q) *
-                                     QP_bd_values[q] * fe_face_values.JxW(q));
+                  for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+                    P_local_rhs(i) += -time_step * EquationData::g_B_w *
+                                      (fe_face_values.shape_value(i, q) *
+                                       QP_bd_values[q] * fe_face_values.JxW(q));
+                  }
                 }
               }
             }
@@ -661,7 +664,7 @@ void CoupledTH<dim>::linear_solve_T() {
   PETScWrappers::SolverGMRES solver(solver_control,
                                     mpi_communicator);  // config solver
 
-  PETScWrappers::PreconditionBlockJacobi preconditioner(T_system_matrix);  // precond
+  PETScWrappers::PreconditionJacobi preconditioner(T_system_matrix);  // precond
   // preconditioner.initialize(T_system_matrix, 1.0);      // initialize precond
   solver.solve(T_system_matrix, distributed_T_solution, T_system_rhs,
                preconditioner);  // solve eq

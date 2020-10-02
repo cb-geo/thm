@@ -15,17 +15,19 @@ const double g_c_w = 1e6;           // heat capacity of water
 const double g_B_w = 1e8;           // bulk modulus of pores
 
 // Pressure seetings
-const int g_num_P_bnd_id = 8;  // numbers of  pressure boudnary condition id
+const int g_num_P_bnd_id = 10;  // numbers of  pressure boudnary condition id
 const int g_P_bnd_id[g_num_P_bnd_id] = {
-    1, 2, 4, 5, 7, 8, 11311, 11312};  // pressure boundary condition id
+    6, 3, 1, 2, 4, 5, 7, 8, 11311, 11312};  // pressure boundary condition id
 
 const double g_Pb_top = 0;           // pressure at the top of model
 const double g_P_grad = 1000 * 9.8;  // pressure gradient in vertial direction
 const double g_P_grad_x = 1000 * 9.8 * 1 / 2000;  // 2000m drops ten meters
 
 // Velocity settings
-const int g_num_QP_bnd_id = 4;  // numbers of velocity boudnary condition id
-const int g_QP_bnd_id[g_num_QP_bnd_id] = {2, 5, 7, 8};
+// const int g_num_QP_bnd_id = 4;  // numbers of velocity boudnary condition id
+// const int g_QP_bnd_id[g_num_QP_bnd_id] = {2, 5, 7, 8};
+const int g_num_QP_bnd_id = 0;  // numbers of velocity boudnary condition id
+const int g_QP_bnd_id[1] = {-1};
 
 // velocity  boundary
 const double g_Qb_lateral = 0;
