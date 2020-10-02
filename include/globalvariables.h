@@ -12,7 +12,7 @@ double g_perm = 1e-6 / 1000 / 9.8;  // permeability
 double g_c_T = 1.2e6;               // heat capacity of the mixture
 double g_lam = 1.2;                 // heat conductivity
 const double g_c_w = 1e6;           // heat capacity of water
-const double g_B_w = 1e8;           // bulk modulus of pores
+const double g_B_w = 1e5;           // bulk modulus of pores
 
 // Pressure seetings
 const int g_num_P_bnd_id = 10;  // numbers of  pressure boudnary condition id
