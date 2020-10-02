@@ -119,7 +119,7 @@ double TemperatureDirichletBoundaryValues<dim>::value(
   } else {
     return g_Tb_top + g_T_grad * (0. - p[2]);
   }
-}
+}  // namespace EquationData
 
 // template <int dim>
 // void TemperatureDirichletBoundaryValues<dim>::vector_value(
