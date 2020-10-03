@@ -7,6 +7,7 @@
 #include <iostream>
 #include <math.h>
 
+#include "externalfunc.h"
 #include "globalvariables.h"
 
 using namespace dealii;
