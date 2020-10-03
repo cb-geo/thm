@@ -71,7 +71,7 @@ const double g_QT_bottom = 2.97 * g_T_grad;
 // solver settings
 
 const bool is_linspace = false;
-const double g_total_time = 86400 * 180;  // simulation time
+const double g_total_time = 86400 * 360;  // simulation time
 const double g_period = 86400 * 360;      // for periodic load
 const int g_n_time_step = 25;             // simulation time
 // std::vector<double> g_time_sequence = {
