@@ -103,8 +103,8 @@ std::string therm_file_name_interpolation =
 std::string capa_file_name_interpolation =
     "inputfiles/parameters_for_capa_interpolation.txt";
 // number of sample point in x directin, y direction and z direction
-const int dimension_x = 40;
-const int dimension_y = 20;
+const int dimension_x = 20;
+const int dimension_y = 10;
 const int dimension_z = 10;
 
 }  // namespace EquationData
