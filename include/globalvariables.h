@@ -33,8 +33,8 @@ const int g_QP_bnd_id[1] = {-1};
 const double g_Qb_lateral = 0;
 
 // Temperature seetings for injection
-const int g_num_T_bnd_id = 2;
-const int g_T_bnd_id[g_num_T_bnd_id] = {23, 6};
+const int g_num_T_bnd_id = 3;
+const int g_T_bnd_id[g_num_T_bnd_id] = {23, 6, 3};
 // const int g_num_T_bnd_id = 11;
 // const int g_T_bnd_id[g_num_T_bnd_id] = {23, 6, 3, 1, 2, 4, 5, 7, 8, 11311,
 // 11312};
@@ -64,8 +64,8 @@ const double g_Tb_well =
 // const double g_QT_bottom = 2.97 * g_T_grad;
 
 // // Heat flow rate settins for injection
-const int g_num_QT_bnd_id = 1;
-const int g_QT_bnd_id[g_num_QT_bnd_id] = {3};  // velocity  boundary
+const int g_num_QT_bnd_id = 0;
+const int g_QT_bnd_id[0] = {-1};  // velocity  boundary
 // const double g_QT_well = 0;       // wellbore temperature
 // const double g_QT_top = 0;
 const double g_QT_bottom = 2.97 * g_T_grad;
