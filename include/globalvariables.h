@@ -97,7 +97,9 @@ const double g_T_tol_residual = 1e-10;
 // inputfiles is used in the example)
 const int dimension = 3;
 // dimension in x, y and z directions
-std::string mesh_file_name = "inputfiles/new_build.msh";
+// std::string mesh_file_name = "inputfiles/new_build.msh";
+std::string mesh_file_name = "inputfiles/shortbeam_hexa_fracture_update.msh";
+
 std::string perm_file_name_interpolation =
     "inputfiles/parameters_for_perm_interpolation.txt";
 std::string therm_file_name_interpolation =
