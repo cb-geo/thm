@@ -7,6 +7,7 @@
 #include <iostream>
 #include <math.h>
 
+#include "externalfunc.h"
 #include "globalvariables.h"
 
 using namespace dealii;
@@ -108,18 +109,18 @@ double TemperatureDirichletBoundaryValues<dim>::value(
 
   if (bd_i_ == 0) {
     if (time <= period_ / 2) {
-      return g_Tb_well + 13;
+      return g_Tb_well + 14;
     } else {
-      return g_Tb_well - 13;
+      return g_Tb_well - 14;
     }
 
   } else if (bd_i_ == 1) {
-    // return interpolate1d(g_Tb_top_seasonal, time, false);
-    return g_Tb_top;
+    return interpolate1d(g_Tb_top_seasonal, time, false);
+    // return g_Tb_top;
   } else {
     return g_Tb_top + g_T_grad * (0. - p[2]);
   }
-}
+}  // namespace EquationData
 
 // template <int dim>
 // void TemperatureDirichletBoundaryValues<dim>::vector_value(
