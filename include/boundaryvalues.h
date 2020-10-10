@@ -5,7 +5,9 @@
 #include <deal.II/numerics/vector_tools.h>
 #include <fstream>
 #include <iostream>
+#include <math.h>
 
+#include "externalfunc.h"
 #include "globalvariables.h"
 
 using namespace dealii;
@@ -14,18 +16,19 @@ namespace EquationData {
 template <int dim>
 class PressureDirichletBoundaryValues : public Function<dim> {
  private:
-  const double period_;  // value
+  double period_;  // value
   int boundary_id_{-1};
   int bd_i_;
 
  public:
   PressureDirichletBoundaryValues()
-      : Function<dim>(), period_(0.2), bd_i_(0) {}  // 之前的没有
+      : Function<dim>(), period_(0), bd_i_(0) {}  // 之前的没有
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
   virtual void get_bd_i(int bd_i) { bd_i_ = bd_i; }
   // virtual void vector_value(const Point<dim>& p,  //放在这里没啥用
   //                           Vector<double>& value) const;
+  virtual void get_period(double period) { period_ = period; }
   virtual void set_boundary_id(int bnd_id) { boundary_id_ = bnd_id; }
 };
 
@@ -42,23 +45,27 @@ double PressureDirichletBoundaryValues<dim>::value(
   //     g_P_bnd_id + g_num_P_bnd_id) {
   //   return g_Pb_top + g_P_grad * (0. - p[2]);
   // }
-  return g_Pb_top + g_P_grad * (0. - p[2]);
+  if (bd_i_ == 0) {
+    return g_Pb_top + g_P_grad * (0. - p[2]) - g_P_grad_x * (-1672 - p[0]);
+  } else if (bd_i_ == 1) {
+    return g_Pb_well;
+  }
 }
 
 template <int dim>
 class PressureNeumanBoundaryValues : public Function<dim> {
  private:
-  const double period_;  // value
+  double period_;  // value
   int boundary_id_{-1};
   int bd_i_;
 
  public:
   PressureNeumanBoundaryValues()
-      : Function<dim>(), period_(0.2), bd_i_(0) {}  // 之前的没有
+      : Function<dim>(), period_(0), bd_i_(0) {}  // 之前的没有
   virtual void get_bd_i(int bd_i) { bd_i_ = bd_i; };
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
-
+  virtual void get_period(double period) { period_ = period; }
   // virtual void vector_value(const Point<dim>& p,  //放在这里没啥用
   //                           Vector<double>& value) const;
   virtual void set_boundary_id(int bnd_id) { boundary_id_ = bnd_id; }
@@ -78,14 +85,15 @@ double PressureNeumanBoundaryValues<dim>::value(
 template <int dim>
 class TemperatureDirichletBoundaryValues : public Function<dim> {
  private:
-  const double period_;  // value
+  double period_;  // value
   int boundary_id_{-1};
   int bd_i_;
 
  public:
   TemperatureDirichletBoundaryValues()
-      : Function<dim>(), period_(0.2), bd_i_(0) {}  // 之前的没有
+      : Function<dim>(), period_(0), bd_i_(0) {}  // 之前的没有
   virtual void get_bd_i(int bd_i) { bd_i_ = bd_i; };
+  virtual void get_period(double period) { period_ = period; }
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
   // virtual void vector_value(const Point<dim>& p,  //放在这里没啥用
@@ -104,13 +112,12 @@ double TemperatureDirichletBoundaryValues<dim>::value(
   const double time = this->get_time();
 
   if (bd_i_ == 0) {
+    return g_Tb_top;
+  } else if (bd_i_ == 1) {
+    // return interpolate1d(g_Tb_top_seasonal, time, false);
     return g_Tb_well;
-  } else if (bd_i_ == 1 || bd_i_ == 2) {
-    return g_Tb_top + g_T_grad * (0. - p[2]);
-  } else {
-    return g_Tb_seabed_top + g_T_seabed_grad * (0. - p[2]);
   }
-}
+}  // namespace EquationData
 
 // template <int dim>
 // void TemperatureDirichletBoundaryValues<dim>::vector_value(
@@ -122,14 +129,15 @@ double TemperatureDirichletBoundaryValues<dim>::value(
 template <int dim>
 class TemperatureNeumanBoundaryValues : public Function<dim> {
  private:
-  const double period;  // value
+  double period_;  // value
   int boundary_id_{-1};
   int bd_i_;
 
  public:
   TemperatureNeumanBoundaryValues()
-      : Function<dim>(), period(0.2), bd_i_(0) {}  // 之前的没有
-  virtual void get_bd_i(int bd_i) { bd_i_ = bd_i; };
+      : Function<dim>(), period_(0), bd_i_(0) {}  // 之前的没有
+  virtual void get_bd_i(int bd_i) { bd_i_ = bd_i; }
+  virtual void get_period(double period) { period_ = period; }
   virtual double value(const Point<dim>& p,
                        const unsigned int component = 0) const;  // boundary
   // virtual void vector_value(const Point<dim>& p,  //放在这里没啥用
@@ -146,7 +154,7 @@ double TemperatureNeumanBoundaryValues<dim>::value(
   // Assert(dim == 3, ExcNotImplemented());
 
   const double time = this->get_time();
-  return g_QT_top;
+  return g_QT_bottom;
 }
 
 // template <int dim>

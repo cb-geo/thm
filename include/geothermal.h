@@ -107,9 +107,10 @@ class CoupledTH {
   unsigned int timestep_number;  // n_t
   std::vector<double> time_sequence;
 
-  double period;
+  double total_time;
   int n_time_step;
   double time_step;
+  double period;
 
   unsigned int P_iteration_namber;
   unsigned int T_iteration_namber;
@@ -118,7 +119,9 @@ class CoupledTH {
   double P_tol_residual = EquationData::g_P_tol_residual;
   double T_tol_residual = EquationData::g_T_tol_residual;
 
-  Interpolation<3> data_interpolation;
+  // Interpolation<3> perm_interpolation;
+  // Interpolation<3> therm_interpolation;
+  // Interpolation<3> capa_interpolation;
 
   MPI_Comm mpi_communicator;
   const unsigned int n_mpi_processes;
@@ -139,25 +142,33 @@ CoupledTH<dim>::CoupledTH(const unsigned int degree)  // initialization
       face_quadrature_formula(degree + 1),
       time(0.0),
       timestep_number(0),
+      period(EquationData::g_period),
       T_iteration_namber(0),
       P_iteration_namber(0),
       mpi_communicator(MPI_COMM_WORLD),
       n_mpi_processes(Utilities::MPI::n_mpi_processes(mpi_communicator)),
       this_mpi_process(Utilities::MPI::this_mpi_process(mpi_communicator)),
       pcout(std::cout,
-            (this_mpi_process == 0)),  // output the results at process 0
-      data_interpolation(EquationData::dimension_x, EquationData::dimension_y,
-                         EquationData::dimension_z,
-                         EquationData::file_name_interpolation) {
+            (this_mpi_process == 0))  // output the results at process 0
+// perm_interpolation(EquationData::dimension_x, EquationData::dimension_y,
+//                    EquationData::dimension_z,
+//                    EquationData::perm_file_name_interpolation),
+// therm_interpolation(EquationData::dimension_x, EquationData::dimension_y,
+//                     EquationData::dimension_z,
+//                     EquationData::therm_file_name_interpolation),
+// capa_interpolation(EquationData::dimension_x, EquationData::dimension_y,
+//                    EquationData::dimension_z,
+//                    EquationData::capa_file_name_interpolation)
+{
   if (EquationData::is_linspace) {
-    period = EquationData::g_period;
+    total_time = EquationData::g_total_time;
     n_time_step = EquationData::g_n_time_step;
-    time_sequence = linspace(0.0, period, n_time_step);
+    time_sequence = linspace(0.0, total_time, n_time_step);
     time_step = time_sequence[1] - time_sequence[0];
   } else {
     time_sequence = EquationData::g_time_sequence;
     n_time_step = time_sequence.size();
-    period = time_sequence[n_time_step - 1];
+    total_time = time_sequence[n_time_step - 1];
     time_step = time_sequence[1] - time_sequence[0];
   }
 }
@@ -172,7 +183,7 @@ void CoupledTH<dim>::make_grid() {
 
   GridIn<dim> gridin;  // instantiate a gridinput
   gridin.attach_triangulation(triangulation);
-  std::ifstream f("inputfiles/denseisland.msh");
+  std::ifstream f(EquationData::mesh_file_name);
   gridin.read_msh(f);
   // print_mesh_info(triangulation, "outputfiles/grid-1.eps");
   // triangulation.refine_global(1);
@@ -212,6 +223,7 @@ void CoupledTH<dim>::setup_system() {
   P_solution.reinit(dof_handler.n_dofs());
   old_P_solution.reinit(dof_handler.n_dofs());
   timer.tock("dof_handler");
+  pcout << "\n" << std::endl << std::endl;
 }
 
 template <int dim>
@@ -296,9 +308,10 @@ void CoupledTH<dim>::assemble_P_system() {
         //     EquationData::g_perm_list, P_quadrature_coord[2], false);  //
         //     step-5
 
-        EquationData::g_perm = data_interpolation.value(P_quadrature_coord[0],
-                                                        P_quadrature_coord[1],
-                                                        P_quadrature_coord[2]);
+        // EquationData::g_perm =
+        // perm_interpolation.value(P_quadrature_coord[0],
+        //                                                 P_quadrature_coord[1],
+        //                                                 P_quadrature_coord[2]);
 
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           const Tensor<1, dim> grad_phi_i_P = fe_values.shape_grad(i, q);
@@ -321,38 +334,41 @@ void CoupledTH<dim>::assemble_P_system() {
       }
 
       // APPLIED NEWMAN BOUNDARY CONDITION
-      for (unsigned int face_no = 0;
-           face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
-        if (cell->at_boundary(face_no)) {
-          for (int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id; ++bd_i) {
+      if (EquationData::g_num_QP_bnd_id != 0) {
+        for (unsigned int face_no = 0;
+             face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
+          if (cell->at_boundary(face_no)) {
+            for (int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id; ++bd_i) {
 
-            if (cell->face(face_no)->boundary_id() ==
-                EquationData::g_QP_bnd_id[bd_i]) {
-              fe_face_values.reinit(cell, face_no);
+              if (cell->face(face_no)->boundary_id() ==
+                  EquationData::g_QP_bnd_id[bd_i]) {
+                fe_face_values.reinit(cell, face_no);
 
-              // get boundary condition
-              QP_boundary.get_bd_i(bd_i);
-              QP_boundary.set_time(time);
-              QP_boundary.set_boundary_id(*(EquationData::g_QP_bnd_id + bd_i));
-              QP_boundary.value_list(fe_face_values.get_quadrature_points(),
-                                     QP_bd_values);
+                // get boundary condition
+                QP_boundary.get_bd_i(bd_i);
+                QP_boundary.set_time(time);
+                QP_boundary.set_boundary_id(
+                    *(EquationData::g_QP_bnd_id + bd_i));
+                QP_boundary.value_list(fe_face_values.get_quadrature_points(),
+                                       QP_bd_values);
 
-              for (unsigned int q = 0; q < n_face_q_points; ++q) {
+                for (unsigned int q = 0; q < n_face_q_points; ++q) {
 
-                const auto P_face_quadrature_coord =
-                    fe_face_values.quadrature_point(q);
-                // EquationData::g_perm =
-                //     interpolate1d(EquationData::g_perm_list,
-                //                   P_face_quadrature_coord[2], false);  //
-                //                   step-5
-                EquationData::g_perm = data_interpolation.value(
-                    P_face_quadrature_coord[0], P_face_quadrature_coord[1],
-                    P_face_quadrature_coord[2]);
+                  const auto P_face_quadrature_coord =
+                      fe_face_values.quadrature_point(q);
+                  // EquationData::g_perm =
+                  //     interpolate1d(EquationData::g_perm_list,
+                  //                   P_face_quadrature_coord[2], false);  //
+                  //                   step-5
+                  // EquationData::g_perm = perm_interpolation.value(
+                  //     P_face_quadrature_coord[0], P_face_quadrature_coord[1],
+                  //     P_face_quadrature_coord[2]);
 
-                for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-                  P_local_rhs(i) += -time_step * EquationData::g_B_w *
-                                    (fe_face_values.shape_value(i, q) *
-                                     QP_bd_values[q] * fe_face_values.JxW(q));
+                  for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+                    P_local_rhs(i) += -time_step * EquationData::g_B_w *
+                                      (fe_face_values.shape_value(i, q) *
+                                       QP_bd_values[q] * fe_face_values.JxW(q));
+                  }
                 }
               }
             }
@@ -398,6 +414,7 @@ void CoupledTH<dim>::assemble_P_system() {
     }
   }
   timer.tock("assemble_P_system");
+  pcout << "\n" << std::endl << std::endl;
 }
 
 template <int dim>
@@ -476,10 +493,17 @@ void CoupledTH<dim>::assemble_T_system() {
         // EquationData::g_perm = interpolate1d(
         //     EquationData::g_perm_list, T_quadrature_coord[2], false);  //
         //     step-5
-        EquationData::g_perm = data_interpolation.value(T_quadrature_coord[0],
-                                                        T_quadrature_coord[1],
-                                                        T_quadrature_coord[2]);
-
+        // EquationData::g_perm =
+        // perm_interpolation.value(T_quadrature_coord[0],
+        //                                                 T_quadrature_coord[1],
+        //                                                 T_quadrature_coord[2]);
+        // EquationData::g_lam =
+        // therm_interpolation.value(T_quadrature_coord[0],
+        //                                                 T_quadrature_coord[1],
+        //                                                 T_quadrature_coord[2]);
+        // EquationData::g_c_T = capa_interpolation.value(T_quadrature_coord[0],
+        //                                                T_quadrature_coord[1],
+        //                                                T_quadrature_coord[2]);
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           const Tensor<1, dim> grad_phi_i_T = fe_values.shape_grad(i, q);
           const double phi_i_T = fe_values.shape_value(i, q);
@@ -506,38 +530,43 @@ void CoupledTH<dim>::assemble_T_system() {
       }
 
       // APPLIED NEUMAN BOUNDARY CONDITION
+      if (EquationData::g_num_QT_bnd_id != 0) {
+        for (unsigned int face_no = 0;
+             face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
+          if (cell->at_boundary(face_no)) {
+            for (int bd_i = 0; bd_i < EquationData::g_num_QT_bnd_id; ++bd_i) {
+              if (cell->face(face_no)->boundary_id() ==
+                  EquationData::g_QT_bnd_id[bd_i]) {
+                fe_face_values.reinit(cell, face_no);
 
-      for (unsigned int face_no = 0;
-           face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
-        if (cell->at_boundary(face_no)) {
-          for (int bd_i = 0; bd_i < EquationData::g_num_QT_bnd_id; ++bd_i) {
-            if (cell->face(face_no)->boundary_id() ==
-                EquationData::g_QT_bnd_id[bd_i]) {
-              fe_face_values.reinit(cell, face_no);
+                // get boundary condition
+                QT_boundary.get_bd_i(bd_i);
+                QT_boundary.set_time(time);
+                QT_boundary.set_boundary_id(
+                    *(EquationData::g_QT_bnd_id + bd_i));
+                QT_boundary.value_list(fe_face_values.get_quadrature_points(),
+                                       QT_bd_values);
 
-              // get boundary condition
-              QT_boundary.get_bd_i(bd_i);
-              QT_boundary.set_time(time);
-              QT_boundary.set_boundary_id(*(EquationData::g_QT_bnd_id + bd_i));
-              QT_boundary.value_list(fe_face_values.get_quadrature_points(),
-                                     QT_bd_values);
+                for (unsigned int q = 0; q < n_face_q_points; ++q) {
 
-              for (unsigned int q = 0; q < n_face_q_points; ++q) {
+                  const auto T_face_quadrature_coord =
+                      fe_face_values.quadrature_point(q);
+                  // EquationData::g_perm =
+                  //     interpolate1d(EquationData::g_perm_list,
+                  //                   T_face_quadrature_coord[2], false);  //
+                  //                   step-5
+                  // EquationData::g_perm = perm_interpolation.value(
+                  //     T_face_quadrature_coord[0], T_face_quadrature_coord[1],
+                  //     T_face_quadrature_coord[2]);
+                  // EquationData::g_c_T = capa_interpolation.value(
+                  //     T_face_quadrature_coord[0], T_face_quadrature_coord[1],
+                  //     T_face_quadrature_coord[2]);
 
-                const auto T_face_quadrature_coord =
-                    fe_face_values.quadrature_point(q);
-                // EquationData::g_perm =
-                //     interpolate1d(EquationData::g_perm_list,
-                //                   T_face_quadrature_coord[2], false);  //
-                //                   step-5
-                EquationData::g_perm = data_interpolation.value(
-                    T_face_quadrature_coord[0], T_face_quadrature_coord[1],
-                    T_face_quadrature_coord[2]);
-
-                for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-                  T_local_rhs(i) += -time_step / EquationData::g_c_T *
-                                    fe_face_values.shape_value(i, q) *
-                                    QT_bd_values[q] * fe_face_values.JxW(q);
+                  for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+                    T_local_rhs(i) += -time_step / EquationData::g_c_T *
+                                      fe_face_values.shape_value(i, q) *
+                                      QT_bd_values[q] * fe_face_values.JxW(q);
+                  }
                 }
               }
             }
@@ -563,7 +592,7 @@ void CoupledTH<dim>::assemble_T_system() {
     }
   }
 
-  timer.tock("assemble_T_system_no_DIRICHLET_boundary");
+  // timer.tock("assemble_T_system_no_DIRICHLET_boundary");
   // compress the matrix
   T_system_matrix.compress(VectorOperation::add);
   T_system_rhs.compress(VectorOperation::add);
@@ -573,6 +602,7 @@ void CoupledTH<dim>::assemble_T_system() {
 
     for (int bd_i = 0; bd_i < EquationData::g_num_T_bnd_id; bd_i++) {
       T_boundary.get_bd_i(bd_i);
+      T_boundary.get_period(period);  // for seeting sin function
       T_boundary.set_time(time);
       T_boundary.set_boundary_id(*(EquationData::g_T_bnd_id + bd_i));
       std::map<types::global_dof_index, double> T_bd_values;
@@ -590,7 +620,8 @@ void CoupledTH<dim>::assemble_T_system() {
     }
   }
 
-  // timer.tock("assemble_T_system");
+  timer.tock("assemble_T_system");
+  pcout << "\n" << std::endl << std::endl;
 }
 
 template <int dim>
@@ -619,6 +650,7 @@ void CoupledTH<dim>::linear_solve_P() {
         << "\n";
 
   timer.tock("linear_solve_P");
+  pcout << "\n" << std::endl << std::endl;
 }
 
 template <int dim>
@@ -651,6 +683,7 @@ void CoupledTH<dim>::linear_solve_T() {
         << "\n";
 
   timer.tock("linear_solve_T");
+  pcout << "\n" << std::endl << std::endl;
 }
 
 // @sect4{<code>CoupledTH::output_results</code>}
@@ -776,7 +809,8 @@ void CoupledTH<dim>::run() {
 
     timestep_number += 1;
 
-    pcout << "\nt=" << time << ", dt=" << time_step << '.' << std::endl;
+    pcout << "\nt=" << time / EquationData::g_seconds << ", dt=" << time_step << '.'
+          << std::endl;
 
     output_results(T_solution, "T");
     output_results(P_solution, "P");
@@ -791,7 +825,7 @@ void CoupledTH<dim>::run() {
     // T_system_matrix.print_formatted(out_T_matrix);
     // T_system_rhs.print(out);
 
-  } while (time < period);
+  } while (time < total_time);
 
   timer.tock("solve_all");
   pcout << "\n" << std::endl << std::endl;
