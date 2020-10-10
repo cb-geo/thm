@@ -45,7 +45,11 @@ double PressureDirichletBoundaryValues<dim>::value(
   //     g_P_bnd_id + g_num_P_bnd_id) {
   //   return g_Pb_top + g_P_grad * (0. - p[2]);
   // }
-  return g_Pb_top + g_P_grad * (0. - p[2]) - g_P_grad_x * (-1672 - p[0]);
+  if (bd_i_ == 0) {
+    return g_Pb_top + g_P_grad * (0. - p[2]) - g_P_grad_x * (-1672 - p[0]);
+  } else if (bd_i_ == 1) {
+    return g_Pb_well;
+  }
 }
 
 template <int dim>
@@ -108,17 +112,10 @@ double TemperatureDirichletBoundaryValues<dim>::value(
   const double time = this->get_time();
 
   if (bd_i_ == 0) {
-    if (time <= period_ / 2) {
-      return g_Tb_well + 14;
-    } else {
-      return g_Tb_well - 14;
-    }
-
+    return g_Tb_top;
   } else if (bd_i_ == 1) {
-    return interpolate1d(g_Tb_top_seasonal, time, false);
-    // return g_Tb_top;
-  } else {
-    return g_Tb_top + g_T_grad * (0. - p[2]);
+    // return interpolate1d(g_Tb_top_seasonal, time, false);
+    return g_Tb_well;
   }
 }  // namespace EquationData
 

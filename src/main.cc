@@ -5,35 +5,34 @@
 #include "initialvalues.h"
 #include "sourceterm.h"
 #include "geothermal.h"
-//edit
+// edit
 //#include "interpolation.h"
 
 int main(int argc, char** argv) {
   using namespace dealii;
-  double seconds;
-  //
-  //get_parameter("inputfiles/parameters.csv", EquationData::g_perm_list, 1);
-
 
   if (EquationData::time_unit == 'd') {
-    seconds = 86400;
+    EquationData::g_seconds = 86400;
   } else if (EquationData::time_unit == 'h') {
-    seconds = 3600;
+    EquationData::g_seconds = 3600;
+  } else if (EquationData::time_unit == 's') {
+    EquationData::g_seconds = 1;
   }
+
   for (unsigned int i = 0; i < EquationData::g_time_sequence.size(); ++i) {
-    EquationData::g_time_sequence[i] *= seconds;
+    EquationData::g_time_sequence[i] *= EquationData::g_seconds;
   }
-  //edit
+  // edit
   // std::cout << 1<< std::endl;
   // std::cout << data_interpolation.value(0.0, 0.0, 0.0) << std::endl;
 
   try {
-    //edit
-    //using namespace dealii;
+    // edit
+    // using namespace dealii;
 
     Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
 
-    //edit
+    // edit
     CoupledTH<3> coupled_TH_solver(1);
     coupled_TH_solver.run();
     // std::string filename2="inputfiles/parameters_for_interpolation.txt";
