@@ -62,11 +62,7 @@ endif()
 
 #thm executable
 SET(thm_src
-  ./src/main.cc
-  ./src/get_parameter.cc
-  ./src/interpolation1d.cc
-  ./src/linspace.cc
-  ./src/inOrNot.cc
+  ./src/main_consolidation.cc
 )
 
 # aux_source_directory(./src/ thm_src)
