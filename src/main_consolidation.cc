@@ -395,8 +395,8 @@ void THMConsolidation<dim>::assemble_system()
     //fe_face_values.get_function_values(solution_, old_solution_values_face);
 
 
-    for (unsigned int q = 0; q < 1/*n_q_points*/; ++q) {
-      for (unsigned int i = 0; i < 1/*dofs_per_cell*/; ++i) {
+    for (unsigned int q = 0; q < n_q_points; ++q) {
+      for (unsigned int i = 0; i < dofs_per_cell; ++i) {
               
         const unsigned int component_i = fe_.system_to_component_index(i).first;
         const Tensor<1, dim> phi_i_u = fe_values[deformations].value(i, q);
@@ -406,7 +406,7 @@ void THMConsolidation<dim>::assemble_system()
         const Tensor<1, dim> grad_phi_i_p = fe_values[pressure].gradient(i, q);
         const double div_phi_i_u=fe_values[deformations].divergence(i,q);
 
-        for (unsigned int j = 0; j < 1/*dofs_per_cell*/; ++j) {
+        for (unsigned int j = 0; j < dofs_per_cell; ++j) {
           const unsigned int component_j =  fe_.system_to_component_index(j).first;
           const Tensor<1, dim> phi_j_u = fe_values[deformations].value(j, q);
           //const Tensor<2, dim> grad_phi_j_u = fe_values[deformations].gradient(j, q);
@@ -461,10 +461,10 @@ void THMConsolidation<dim>::assemble_system()
         k.value_list(fe_face_values.get_quadrature_points(), boundary_k_values);
         //gravity_boundary_values.value_list(fe_face_values.get_quadrature_points(), boundary_g_values);
 
-        for (unsigned int q = 0; q < 1/*n_face_q_points*/; ++q) {
+        for (unsigned int q = 0; q < n_face_q_points; ++q) {
           const Tensor<1, dim> nf = fe_face_values.normal_vector(q);
 
-          for (unsigned int i = 0; i < 1/*dofs_per_cell*/; ++i) {
+          for (unsigned int i = 0; i < dofs_per_cell; ++i) {
             const unsigned int component_i = fe_.system_to_component_index(i).first;
             const Tensor<1, dim> phi_i_u = fe_face_values[deformations].value(i, q);
             const double phi_i_p = fe_face_values[pressure].value(i, q);
