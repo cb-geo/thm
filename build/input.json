@@ -3,9 +3,10 @@
   "degree": 1,
   "parameters": {
     "model_length": 2.0,
-    "subdivision": 10,
-    "max_steps": 1,
-    "time_step": 0.5,
+    "subdivision": 8,
+    "loading_on_top": 1000,
+    "max_steps": 5,
+    "time_step": 0.005,
     "k": 1e-3,
     "lambda": 1e4,
     "mu":1e4

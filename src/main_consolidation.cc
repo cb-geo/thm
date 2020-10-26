@@ -37,6 +37,10 @@
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/error_estimator.h>
 
+#include <deal.II/lac/sparse_direct.h>
+#include <deal.II/base/timer.h>
+
+
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -84,6 +88,7 @@ private:
   double           k_in_;
   double           lambda_in_;
   double           mu_in_;
+  double           pressure_in_;
 };
 
 // For Dirichlet boundary conditions
@@ -151,6 +156,9 @@ public:
   DeformationNeumannBoundary() : TensorFunction<1,dim>() {}
   virtual void value_list(const std::vector<Point<dim>> &points, 
                           std::vector<Tensor<1,dim>> & values) const override;
+  void get_pressure(const double pressure) {pressure_ = pressure; }
+private:
+  double pressure_;
 };
 
 template <int dim>
@@ -160,7 +168,7 @@ void DeformationNeumannBoundary<dim>::value_list(const std::vector<Point<dim>> &
   (void)points;
   AssertDimension(points.size(), values.size());
   for(auto &value : values) {
-    value[0] = 0; value[1] = 0; value[2] = 999.0;
+    value[0] = 0; value[1] = 0; value[2] = -pressure_;
   }
 }
 
@@ -187,13 +195,16 @@ class PressureInitial : public Function<dim>
 public:
   PressureInitial() : Function<dim>(dim + 1) {}
   virtual void vector_value(const Point<dim> &p, Vector<double> &  value) const override;
+  void get_pressure(const double pressure) {pressure_ = pressure; }
+private:
+  double pressure_;
 };
 
 template <int dim>
 void PressureInitial<dim>::vector_value(const Point<dim> &p, Vector<double> &  values) const
 {
   (void)p;
-  values(3) = 999.0;
+  values(3) = pressure_;
 }
 
 
@@ -208,6 +219,7 @@ THMConsolidation<dim>::THMConsolidation(const unsigned degree, const nlohmann::j
   subdivision_ = json["parameters"]["subdivision"].template get<unsigned>();
   max_steps_ = json["parameters"]["max_steps"].template get<unsigned>();
   time_step_ = json["parameters"]["time_step"].template get<double>();
+  pressure_in_ = json["parameters"]["loading_on_top"].template get<double>();
   k_in_ = json["parameters"]["k"].template get<double>();
   lambda_in_ = json["parameters"]["lambda"].template get<double>();
   mu_in_ = json["parameters"]["mu"].template get<double>();
@@ -322,14 +334,20 @@ void THMConsolidation<dim>::make_grid()
   DoFTools::make_sparsity_pattern(dof_handler_, dsp, constraints_, false);
   sparsity_pattern_.copy_from(dsp);
   system_matrix_.reinit(sparsity_pattern_);
+  system_matrix_=0;
   solution_.reinit(n_u+n_p);
+  solution_ = 0;
   system_rhs_.reinit(n_u+n_p);
+  system_rhs_=0;
 }
 
 // Assemble matrix system
 template <int dim>
 void THMConsolidation<dim>::assemble_system()
 {
+  const std::vector<size_t> deformation_idx{0, 1, 2};
+  const std::vector<size_t> pressure_idx{3};
+
   system_matrix_ = 0;
   system_rhs_    = 0;
 
@@ -358,7 +376,7 @@ void THMConsolidation<dim>::assemble_system()
 
   // Initialize local old solution containers
   std::vector<Vector<double>> old_solution_values(n_q_points,
-                                                  Vector<double>(dim + 1));
+                                                  Vector<double>(dim+1));
   //std::vector<Vector<double>> old_solution_values_face(n_face_q_points,
                                                        //Vector<double>(dim + 1));
 
@@ -366,6 +384,7 @@ void THMConsolidation<dim>::assemble_system()
 
   // Initialize defined functions for boundary values
   DeformationNeumannBoundary<dim> deformation_neumann_boundary;
+  deformation_neumann_boundary.get_pressure(pressure_in_);
   //PressureNeumannBoundary<dim> pressure_neumann_boundary;
   //GravityValues<dim> gravity_boundary_values;
   std::vector<double> lambda_values(n_q_points);
@@ -386,18 +405,17 @@ void THMConsolidation<dim>::assemble_system()
     local_matrix = 0;
     local_damping_matrix = 0;
     local_rhs    = 0;
+
     lambda.value_list(fe_values.get_quadrature_points(), lambda_values);
     mu.value_list(fe_values.get_quadrature_points(), mu_values);
     k.value_list(fe_values.get_quadrature_points(), k_values);
     const double gamma_w=10.0;
     // Get old solution value at Gauss points
     fe_values.get_function_values(solution_, old_solution_values);
-    //fe_face_values.get_function_values(solution_, old_solution_values_face);
-
 
     for (unsigned int q = 0; q < n_q_points; ++q) {
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-              
+
         const unsigned int component_i = fe_.system_to_component_index(i).first;
         const Tensor<1, dim> phi_i_u = fe_values[deformations].value(i, q);
         //const Tensor<2, dim> grad_phi_i_u = fe_values[deformations].gradient(i, q);
@@ -407,6 +425,7 @@ void THMConsolidation<dim>::assemble_system()
         const double div_phi_i_u=fe_values[deformations].divergence(i,q);
 
         for (unsigned int j = 0; j < dofs_per_cell; ++j) {
+
           const unsigned int component_j =  fe_.system_to_component_index(j).first;
           const Tensor<1, dim> phi_j_u = fe_values[deformations].value(j, q);
           //const Tensor<2, dim> grad_phi_j_u = fe_values[deformations].gradient(j, q);
@@ -414,6 +433,11 @@ void THMConsolidation<dim>::assemble_system()
           const double phi_j_p     = fe_values[pressure].value(j, q);
           const Tensor<1, dim> grad_phi_j_p = fe_values[pressure].gradient(j, q);
           const double div_phi_j_u=fe_values[deformations].divergence(j,q);
+
+          Tensor<1, dim> sub_solution_deformation;
+          double sub_solution_pressure;
+          for(auto id : deformation_idx) sub_solution_deformation[id] = old_solution_values[q](id);
+          sub_solution_pressure = old_solution_values[q](dim);
 
           local_matrix(i, j) +=
            (
@@ -433,23 +457,32 @@ void THMConsolidation<dim>::assemble_system()
              (div_phi_i_u*phi_i_p)
              +
              (grad_phi_i_p * k_values[q] * grad_phi_j_p)/gamma_w
-           ) * fe_values.JxW(q);
-
-
-          local_damping_matrix(i, j) +=
+           ) * fe_values.JxW(q)
+           +
            (
              phi_i_p*div_phi_j_u
+           ) * fe_values.JxW(q)/time_step_;
+
+
+          local_rhs(j) +=
+           (
+             phi_i_p * div_phi_j_u / time_step_
+           ) 
+           * 
+           (
+             phi_j_u * sub_solution_deformation +
+             phi_j_p * sub_solution_pressure
            ) * fe_values.JxW(q);
 
         } // for j
+        
       } // for i
-        // Combine local matrices and rhs
-        local_damping_matrix /= time_step_;
-        //local_matrix=local_matrix+local_damping_matrix;
-        local_matrix.add(1, local_damping_matrix);
-        //local_rhs +=local_damping_matrix*old_solution_values[q];
-        local_damping_matrix.vmult_add(local_rhs, old_solution_values[q]);
+
+        //std::cout<<"local rhs "<<local_rhs<<std::endl;
+
     } // for q
+
+
 
     // Apply Neumann boundary conditions
     for (const auto &face : cell->face_iterators()) {
@@ -472,7 +505,7 @@ void THMConsolidation<dim>::assemble_system()
             local_rhs(i) +=
              (
               (phi_i_u * deformation_neumann_boundary_values[q])
-             ) * fe_face_values.JxW(q);              
+             ) * fe_face_values.JxW(q);   
 
           } // for i
         } // for q
@@ -493,6 +526,12 @@ void THMConsolidation<dim>::assemble_system()
 template <int dim>
 void THMConsolidation<dim>::solve()
 {
+
+  //std::ofstream out("sparsity_pattern.svg");
+  //sparsity_pattern_.print_svg(out);
+  //std::ofstream out1("matrix.txt");
+  //system_matrix_.print_as_numpy_arrays(out1);
+
   SolverControl               solver_control(std::max<std::size_t>(1000,
                                                      system_rhs_.size() / 10),
                                1e-10 * system_rhs_.l2_norm());
@@ -510,6 +549,30 @@ void THMConsolidation<dim>::solve()
             << "   Max norm of residual:                "
             << residual.linfty_norm() << '\n';
 
+/*
+    std::cout 
+             << "   Max norm of rhs: "
+             << system_rhs_.linfty_norm() << '\n' << std::endl;
+    std::cout 
+             << "   Max norm of matrix: "
+             << system_matrix_.linfty_norm() << '\n' << std::endl;
+    std::cout << "Solving linear system... ";
+    Timer timer;
+    SparseDirectUMFPACK A_direct;
+    A_direct.initialize(system_matrix_);
+    A_direct.vmult(solution_, system_rhs_);
+    timer.stop();
+    std::cout << "done (" << timer.cpu_time() << "s)" << std::endl;
+    std::cout 
+             << "   Max norm of solution: "
+             << solution_.linfty_norm() << '\n' << std::endl;
+    Vector<double> residual(dof_handler_.n_dofs());
+    system_matrix_.vmult(residual, solution_);
+    residual -= system_rhs_;
+    std::cout 
+             << "   Max norm of residual: "
+             << residual.linfty_norm() << '\n' << std::endl;
+*/
   constraints_.distribute(solution_);
 }
 
@@ -549,9 +612,13 @@ void THMConsolidation<dim>::run()
   { 
     std::vector<bool> deformations{true, true, true, false};
     std::vector<bool> pressure{false, false, false, true};
+
+    PressureInitial<dim> pressure_initial;
+    pressure_initial.get_pressure(pressure_in_);
+    
     VectorTools::interpolate(dof_handler_, DeformationInitial<dim>(),
                              solution_, deformations);
-    VectorTools::interpolate(dof_handler_, PressureInitial<dim>(),
+    VectorTools::interpolate(dof_handler_, pressure_initial,
                              solution_, pressure);
   }
   output_results(0);
