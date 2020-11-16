@@ -60,7 +60,7 @@ public:
 private:
   void make_grid();
   void setup_system();
-  void assemble_system();
+  void assemble_system(unsigned step);
   void solve();
   void output_results(const unsigned int time_step) const;
 
@@ -82,6 +82,7 @@ private:
 
   unsigned         degree_;
   double           model_length_;
+  double           height_over_width_;
   unsigned         subdivision_;
   unsigned         max_steps_;
   double           time_step_;
@@ -98,16 +99,25 @@ class DeformationDirichletBoundary : public Function<dim>
 public:
   DeformationDirichletBoundary() : Function<dim>(dim + 1) {}
   virtual void vector_value(const Point<dim> &p, Vector<double> &  value) const override;
-  void get_model_length(const double length) {model_length_ = length; }
+  void get_model_length_and_ratio(const double length, const double ratio) {model_length_ = length; height_over_width_ = ratio;}
 private:
   double model_length_;
+  double height_over_width_;
 };
 
 template <int dim>
 void DeformationDirichletBoundary<dim>::vector_value(const Point<dim> &p, Vector<double> &  values) const
 {
   if (p[2] == 0) {
-    for (unsigned int c = 0; c < 3; ++c) values(c) = 0;
+    for (unsigned int c = 0; c < 3; ++c) {
+      if (c==2){
+        values(c) = 0;
+      }
+      else {
+        values(c) = 0;
+      }
+      
+    }
     //values(0) = 11; values(1) = 21; values(2) = 51; 
   } else if (p[0] == 0 || p[1] == 0 || std::abs(p[0]-model_length_) < 1e-12 || std::abs(p[1]-model_length_) < 1e-12) {
     for (unsigned int c = 0; c < 2; ++c) values(c) = 0;
@@ -121,34 +131,19 @@ class PressureDirichletBoundary : public Function<dim>
 public:
   PressureDirichletBoundary() : Function<dim>(dim + 1) {}
   virtual void vector_value(const Point<dim> &p, Vector<double> &  value) const override;
-  void get_model_length(const double length) {model_length_ = length; }
+  void get_model_length_and_ratio(const double length, const double ratio) {model_length_ = length; height_over_width_ = ratio;}
 private:
   double model_length_;
+  double height_over_width_;
 };
 
 template <int dim>
 void PressureDirichletBoundary<dim>::vector_value(const Point<dim> &p, Vector<double> &  values) const
 {
-  if (std::abs(p[2] - model_length_) < 1e-12) values(3) = 0.0;
+  if (std::abs(p[2] - model_length_*height_over_width_) < 1e-12) values(3) = 0;
+  // if (std::abs(p[2] - 0.0) < 1e-12) values(3) = 0.1;
 }
 
-// For Neumann boundary conditions
-/*
-template <int dim>
-class DeformationNeumannBoundary : public Function<dim>
-{
-public:
-  DeformationNeumannBoundary() : Function<dim>(1) {}
-  virtual double value(const Point<dim> &p, const unsigned int component=0) const;
-};
-
-template <int dim>
-double DeformationNeumannBoundary<dim>::value(const Point<dim> &p, const unsigned int) const
-{
-  //if (std::abs(p[2] - model_length_) < 1e-12) return 999.0;
-  return 999.0;
-}
-*/
 template <int dim>
 class DeformationNeumannBoundary : public TensorFunction<1,dim>
 {
@@ -216,6 +211,7 @@ THMConsolidation<dim>::THMConsolidation(const unsigned degree, const nlohmann::j
   , dof_handler_(triangulation_)
 {
   model_length_ = json["parameters"]["model_length"].template get<double>();
+  height_over_width_ = json["parameters"]["height_over_width"].template get<double>();
   subdivision_ = json["parameters"]["subdivision"].template get<unsigned>();
   max_steps_ = json["parameters"]["max_steps"].template get<unsigned>();
   time_step_ = json["parameters"]["time_step"].template get<double>();
@@ -223,7 +219,7 @@ THMConsolidation<dim>::THMConsolidation(const unsigned degree, const nlohmann::j
   k_in_ = json["parameters"]["k"].template get<double>();
   lambda_in_ = json["parameters"]["lambda"].template get<double>();
   mu_in_ = json["parameters"]["mu"].template get<double>();
-  std::cout<<"Model length: "<<model_length_<<std::endl<<"Subdivision: "<<subdivision_<<std::endl
+  std::cout<<"Model length: "<<model_length_<<std::endl<<"height/width: "<<height_over_width_<<std::endl<<"Subdivision: "<<subdivision_<<std::endl
            <<"Total steps: "<<max_steps_<<std::endl<<"Time step: "<<time_step_<<std::endl
            <<"k: "<<k_in_<<", lambda: "<<lambda_in_<<", mu: "<<mu_in_<<std::endl;
 }
@@ -231,7 +227,14 @@ THMConsolidation<dim>::THMConsolidation(const unsigned degree, const nlohmann::j
 template <int dim>
 void THMConsolidation<dim>::make_grid()
 {
-  GridGenerator::subdivided_hyper_cube(triangulation_, subdivision_, 0.0, model_length_);
+  //Tensor<1,dim> TP1;
+  //TP1(0)=0;TP1(1)=0;TP1(2)=0;
+  //Tensor<1,dim> TP2;
+  //TP2(0)=model_length_;TP2(1)=model_length_;TP2(2)=model_length_;
+  const Point<dim,double> grid_p1(0.0, 0.0, 0.0);
+  const Point<dim,double> grid_p2(model_length_, model_length_, model_length_ * height_over_width_);
+  const std::vector<unsigned int> repetitions{subdivision_, subdivision_, subdivision_ * height_over_width_};
+  GridGenerator::subdivided_hyper_rectangle(triangulation_, repetitions, grid_p1, grid_p2);
 
   // Set boundary indicator for applying boundary conditions
   // -x:1, +x:2, -y:3, +y:4, -z:5, +z:6 
@@ -251,7 +254,7 @@ void THMConsolidation<dim>::make_grid()
     for (const auto &cell : triangulation_.active_cell_iterators()) {
       for (const auto &face : cell->face_iterators()) {
         if (face->center()[2] == 0) face->set_all_boundary_ids(5);
-        else if (std::abs(face->center()[2] - model_length_) < 1e-12) face->set_all_boundary_ids(6);
+        else if (std::abs(face->center()[2] - model_length_*height_over_width_) < 1e-12) face->set_all_boundary_ids(6);
       }
     }
   }
@@ -266,9 +269,9 @@ void THMConsolidation<dim>::make_grid()
     constraints_.clear();
 
     DeformationDirichletBoundary<dim> deformation_dirichlet;
-    deformation_dirichlet.get_model_length(model_length_);
+    deformation_dirichlet.get_model_length_and_ratio(model_length_, height_over_width_);
     PressureDirichletBoundary<dim> pressure_dirichlet;
-    pressure_dirichlet.get_model_length(model_length_);
+    pressure_dirichlet.get_model_length_and_ratio(model_length_, height_over_width_);
 
     FEValuesExtractors::Vector deformations_bottom(0);
     FEValuesExtractors::Scalar pressure(dim);
@@ -286,11 +289,18 @@ void THMConsolidation<dim>::make_grid()
                                              deformation_dirichlet,
                                              constraints_,
                                              fe_.component_mask(deformations_bottom));
-    VectorTools::interpolate_boundary_values(dof_handler_,
-                                             6,
-                                             pressure_dirichlet,
-                                             constraints_,
-                                             fe_.component_mask(pressure));
+     VectorTools::interpolate_boundary_values(dof_handler_,
+                                              6,
+                                              pressure_dirichlet,
+                                              constraints_,
+                                              fe_.component_mask(pressure));
+//
+          // VectorTools::interpolate_boundary_values(dof_handler_,
+          //                                      5,
+          //                                      pressure_dirichlet,
+          //                                      constraints_,
+          //                                      fe_.component_mask(pressure));
+                                              
   }
   constraints_.close();
 
@@ -313,8 +323,7 @@ void THMConsolidation<dim>::make_grid()
   dsp.block(0, 0).reinit(n_u, n_u);
   dsp.block(1, 0).reinit(n_p, n_u);
   dsp.block(0, 1).reinit(n_u, n_p);
-  dsp.block(1, 1).reinit(n_p, n_p);
-  dsp.collect_sizes();
+             +
   DoFTools::make_sparsity_pattern(dof_handler_, dsp, constraints_, false);
 
   sparsity_pattern_.copy_from(dsp);
@@ -343,7 +352,7 @@ void THMConsolidation<dim>::make_grid()
 
 // Assemble matrix system
 template <int dim>
-void THMConsolidation<dim>::assemble_system()
+void THMConsolidation<dim>::assemble_system(unsigned step)
 {
   const std::vector<size_t> deformation_idx{0, 1, 2};
   const std::vector<size_t> pressure_idx{3};
@@ -351,8 +360,8 @@ void THMConsolidation<dim>::assemble_system()
   system_matrix_ = 0;
   system_rhs_    = 0;
 
-  QGauss<dim>     quadrature_formula(degree_ + 2);
-  QGauss<dim - 1> face_quadrature_formula(degree_ + 2);
+  QGauss<dim>     quadrature_formula(degree_+2 );
+  QGauss<dim - 1> face_quadrature_formula(degree_+2 );
 
   FEValues<dim>     fe_values(fe_,
                           quadrature_formula,
@@ -440,39 +449,43 @@ void THMConsolidation<dim>::assemble_system()
           sub_solution_pressure = old_solution_values[q](dim);
 
           local_matrix(i, j) +=
-           (
-             (lambda_values[q] * 
-              div_phi_i_u * div_phi_j_u)                         
+             (
+             (lambda_values[q] * div_phi_i_u * div_phi_j_u)                         
              +   
-/*                                             
-             (mu_values[q] *
-              double_contract(grad_phi_i_u, grad_phi_j_u))                            
-             +                                                
-             (mu_values[q] *
-              double_contract(grad_phi_i_u, transpose(grad_phi_j_u)))
-*/
-             (2 * mu_values[q] *
-              symmgrad_phi_i_u * symmgrad_phi_j_u)
+             (2 * mu_values[q] *symmgrad_phi_i_u * symmgrad_phi_j_u)
              +  
-             (div_phi_i_u*phi_i_p)
+             (-div_phi_i_u*phi_j_p)
              +
              (grad_phi_i_p * k_values[q] * grad_phi_j_p)/gamma_w
-           ) * fe_values.JxW(q)
-           +
-           (
-             phi_i_p*div_phi_j_u
-           ) * fe_values.JxW(q)/time_step_;
+             +
+             ( phi_i_p*div_phi_j_u/(time_step_ * std::pow(10,step-1)) )
+             )*fe_values.JxW(q);
+          //    if(i==j){
+          // local_matrix(i,j)+=
+          //    (grad_phi_i_p * k_values[q] * grad_phi_j_p)/gamma_w*fe_values.JxW(q);
+          //    }
+          //    if(i==3 && j==3){
+          //      std::cout<<i<<","<<j<<" "<<grad_phi_i_p << std::endl;
+          //    }
 
+            //  local_matrix(i,j)*= fe_values.JxW(q);
+            //  if (abs((-div_phi_i_u*phi_j_p))>1e-13){
+            //   std::cout<<(-div_phi_i_u*phi_j_p)<<" "<<i<<" "<<j<<"cij"<<std::endl;
+            //  }
+            //  if (abs((phi_i_p*div_phi_j_u/time_step_))>1e-13){
+            //   std::cout<<(phi_i_p*div_phi_j_u/time_step_)<<" "<<i<<" "<<j<<"cij/t"<<std::endl;
+            //  }
 
-          local_rhs(j) +=
+          local_rhs(i) +=
            (
-             phi_i_p * div_phi_j_u / time_step_
-           ) 
-           * 
-           (
-             phi_j_u * sub_solution_deformation +
-             phi_j_p * sub_solution_pressure
-           ) * fe_values.JxW(q);
+             phi_i_p * div_phi_j_u / (time_step_ * std::pow(10,step-1))
+           )
+           *
+            (
+              phi_j_u * sub_solution_deformation +
+              phi_j_p * sub_solution_pressure
+            )
+            * fe_values.JxW(q);
 
         } // for j
         
@@ -514,10 +527,15 @@ void THMConsolidation<dim>::assemble_system()
     } // for face
 
     // Assemble local matrix into global
-    cell->get_dof_indices(local_dof_indices);
-    constraints_.distribute_local_to_global(local_matrix, local_rhs, local_dof_indices,
-                                            system_matrix_, system_rhs_);
-
+        cell->get_dof_indices(local_dof_indices);
+        // for (unsigned int i = 0; i < dofs_per_cell; ++i)
+        //   for (unsigned int j = 0; j < dofs_per_cell; ++j)
+        //     system_matrix_.add(local_dof_indices[i],
+        //                       local_dof_indices[j],s
+        //                       local_matrix(i, j));
+        // for (unsigned int i = 0; i < dofs_per_cell; ++i)
+        //   system_rhs_(local_dof_indices[i]) += local_rhs(i);
+        constraints_.distribute_local_to_global(local_matrix, local_rhs, local_dof_indices, system_matrix_, system_rhs_);
   } // for cell
 }
 
@@ -529,25 +547,40 @@ void THMConsolidation<dim>::solve()
 
   //std::ofstream out("sparsity_pattern.svg");
   //sparsity_pattern_.print_svg(out);
-  //std::ofstream out1("matrix.txt");
-  //system_matrix_.print_as_numpy_arrays(out1);
+/*
+  std::ofstream out1("matrix.txt");
+  system_matrix_.print_as_numpy_arrays(out1);
 
-  SolverControl               solver_control(std::max<std::size_t>(1000,
-                                                     system_rhs_.size() / 10),
-                               1e-10 * system_rhs_.l2_norm());
-  SolverGMRES<Vector<double>> solver(solver_control);
-  PreconditionJacobi<SparseMatrix<double>> preconditioner;
-  preconditioner.initialize(system_matrix_, 1.0);
-  solver.solve(system_matrix_, solution_, system_rhs_, preconditioner);
+   SolverControl               solver_control(std::max<std::size_t>(10000,
+                                                      system_rhs_.size() / 10),
+                                1e-15 * system_rhs_.l2_norm());
+   SolverGMRES<Vector<double>> solver(solver_control);
+   PreconditionJacobi<SparseMatrix<double>> preconditioner;
+   preconditioner.initialize(system_matrix_, 1.0);
+   solver.solve(system_matrix_, solution_, system_rhs_, preconditioner);
 
-  Vector<double> residual(dof_handler_.n_dofs());
+   Vector<double> residual(dof_handler_.n_dofs());
 
-  system_matrix_.vmult(residual, solution_);
-  residual -= system_rhs_;
-  std::cout << "   Iterations required for convergence: "
-            << solver_control.last_step() << '\n'
-            << "   Max norm of residual:                "
-            << residual.linfty_norm() << '\n';
+   system_matrix_.vmult(residual, solution_);
+   residual -= system_rhs_;
+   std::cout << "   Iterations required for convergence: "
+             << solver_control.last_step() << '\n'
+             << "   Max norm of residual:                "
+             << residual.linfty_norm() << '\n';
+*/
+
+  ///
+  Timer timer;
+
+  SparseDirectUMFPACK A_direct;
+  A_direct.initialize(system_matrix_);
+  //A_direct.vmult(solution_, system_rhs_);
+  A_direct.factorize(system_matrix_);
+  A_direct.solve(system_rhs_);
+  solution_ = system_rhs_;
+
+  timer.stop();
+  std::cout << "direct solver done (" << timer.cpu_time() << "s)" << std::endl;
 
 /*
     std::cout 
@@ -625,7 +658,7 @@ void THMConsolidation<dim>::run()
 
   for(unsigned step = 1; step <= max_steps_; ++step) {
 
-    assemble_system();
+    assemble_system(step);
 
     solve();
 

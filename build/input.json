@@ -2,13 +2,14 @@
   "title": "THM for 1D consolidation problem",
   "degree": 1,
   "parameters": {
-    "model_length": 2.0,
-    "subdivision": 8,
-    "loading_on_top": 1000,
-    "max_steps": 5,
-    "time_step": 0.005,
-    "k": 1e-3,
-    "lambda": 1e4,
-    "mu":1e4
+    "model_length": 1.0,
+    "height_over_width": 100.0,
+    "subdivision": 1,
+    "loading_on_top": 1,
+    "max_steps": 8,
+    "time_step": 0.001,
+    "k": 10,
+    "lambda": 0,
+    "mu":500
   }
 }
