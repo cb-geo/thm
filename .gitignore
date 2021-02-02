@@ -9,6 +9,7 @@ Makefile
 .DS_Store*
 *.o*
 *~
+inputfiles/*
 *.vtk
 *.orig
 *.tar.gz

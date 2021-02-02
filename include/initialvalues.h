@@ -27,7 +27,7 @@ class PressureInitialValues : public Function<dim> {
 template <int dim>
 double PressureInitialValues<dim>::value(const Point<dim>& p,
                                          const unsigned int) const {
-  return g_Pb_top + g_P_grad * (0. - p[2]);
+  return g_Pb_top + g_P_grad * (0. - p[2]) - g_P_grad_x * (-1672 - p[0]);
 }
 
 // template <int dim>
@@ -53,7 +53,7 @@ template <int dim>
 double TemperatureInitialValues<dim>::value(const Point<dim>& p,
                                             const unsigned int) const {
   const int poly_sides = 7;
-  double poly_x[poly_sides] = {0,         0,         -289.56,  -1371.6,
+  double poly_x[poly_sides] = {0,         0,         -289.56, -1371.6,
                                -1626.108, -1626.108, -1371.6};
   double poly_y[poly_sides] = {0,       710.184, 1000.658, 1000.658,
                                710.184, 279.806, 0};
