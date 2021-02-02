@@ -3,12 +3,12 @@
   "degree": 1,
   "parameters": {
     "model_length": 1.0,
-    "height_over_width": 100.0,
-    "subdivision": 1,
+    "height_over_width": 10,
+    "subdivision": 5,
     "loading_on_top": 1,
-    "max_steps": 8,
-    "time_step": 0.001,
-    "k": 10,
+    "max_steps": 50,
+    "time_step": 0.01,
+    "k": 1e5,
     "lambda": 0,
     "mu":500
   }

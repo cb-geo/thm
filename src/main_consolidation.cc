@@ -13,6 +13,7 @@
 #include <deal.II/lac/solver_gmres.h>
 #include <deal.II/lac/precondition.h>
 #include <deal.II/lac/vector.h>
+#include <deal.II/lac/solver_bicgstab.h>
 
 #include <deal.II/grid/tria.h>
 #include <deal.II/grid/grid_generator.h>
@@ -60,9 +61,9 @@ public:
 private:
   void make_grid();
   void setup_system();
-  void assemble_system(unsigned step);
-  void solve();
-  void output_results(const unsigned int time_step) const;
+  void assemble_system();
+  void solve(unsigned step);
+  void output_results(unsigned int step, unsigned int current_time) const;
 
   Triangulation<dim>        triangulation_;
   FESystem<dim>             fe_;
@@ -80,7 +81,9 @@ private:
   SparseMatrix<double> system_matrix_k_;
   SparseMatrix<double> system_matrix_c_;
   Vector<double> solution_;
+  Vector<double> old_solution_;
   Vector<double> system_rhs_;
+  Vector<double> solution_var_;
 
   unsigned         degree_;
   double           model_length_;
@@ -88,10 +91,14 @@ private:
   unsigned         subdivision_;
   unsigned         max_steps_;
   double           time_step_;
+  double           current_time_;
   double           k_in_;
   double           lambda_in_;
   double           mu_in_;
   double           pressure_in_;
+  double           step_torr_;
+  double           first_step_;
+  const double     gamma_w=1e5;
 };
 
 // For Dirichlet boundary conditions
@@ -360,7 +367,7 @@ void THMConsolidation<dim>::make_grid()
 
 // Assemble matrix system
 template <int dim>
-void THMConsolidation<dim>::assemble_system(unsigned step)
+void THMConsolidation<dim>::assemble_system()
 {
   const std::vector<size_t> deformation_idx{0, 1, 2};
   const std::vector<size_t> pressure_idx{3};
@@ -430,7 +437,7 @@ void THMConsolidation<dim>::assemble_system(unsigned step)
     lambda.value_list(fe_values.get_quadrature_points(), lambda_values);
     mu.value_list(fe_values.get_quadrature_points(), mu_values);
     k.value_list(fe_values.get_quadrature_points(), k_values);
-    const double gamma_w=10.0;
+    
     // Get old solution value at Gauss points
     fe_values.get_function_values(solution_, old_solution_values);
 
@@ -607,19 +614,23 @@ void THMConsolidation<dim>::assemble_system(unsigned step)
 
 // GMRES solver
 template <int dim>
-void THMConsolidation<dim>::solve()
+void THMConsolidation<dim>::solve(unsigned step)
 {
 
   //std::ofstream out("sparsity_pattern.svg");
   //sparsity_pattern_.print_svg(out);
-/*
-  std::ofstream out1("matrix.txt");
-  system_matrix_.print_as_numpy_arrays(out1);
 
-   SolverControl               solver_control(std::max<std::size_t>(10000,
+  // std::ofstream out1("matrix.txt");
+  // system_matrix_.print_as_numpy_arrays(out1);
+  
+if (step < 5)
+{ std::cout<<system_rhs_.l2_norm()<<" l2norm "<<std::endl   ;    
+  SolverControl               solver_control(std::max<std::size_t>(1000,
                                                       system_rhs_.size() / 10),
-                                1e-15 * system_rhs_.l2_norm());
-   SolverGMRES<Vector<double>> solver(solver_control);
+                                1e-7 * system_rhs_.l2_norm());
+                       
+  //  SolverGMRES<Vector<double>> solver(solver_control);
+   SolverBicgstab<Vector<double>> solver(solver_control);
    PreconditionJacobi<SparseMatrix<double>> preconditioner;
    preconditioner.initialize(system_matrix_, 1.0);
    solver.solve(system_matrix_, solution_, system_rhs_, preconditioner);
@@ -632,16 +643,21 @@ void THMConsolidation<dim>::solve()
              << solver_control.last_step() << '\n'
              << "   Max norm of residual:                "
              << residual.linfty_norm() << '\n';
-*/
+             }
 
-  // Direct solver
-  SparseDirectUMFPACK A_direct;
+else
+{
+    SparseDirectUMFPACK A_direct;
   A_direct.initialize(system_matrix_);
   //A_direct.vmult(solution_, system_rhs_);
   A_direct.factorize(system_matrix_);
   A_direct.solve(system_rhs_);
   solution_ = system_rhs_;
+}
+/*
+  // Direct solver
 
+*/
 /*
     std::cout 
              << "   Max norm of rhs: "
@@ -672,7 +688,7 @@ void THMConsolidation<dim>::solve()
 
 // Output results
 template <int dim>
-void THMConsolidation<dim>::output_results(const unsigned int time_step) const
+void THMConsolidation<dim>::output_results(unsigned int time_step, unsigned current_time) const
 {
   std::vector<std::string> solution_names(dim, "deformation");
   solution_names.emplace_back("pressure");
@@ -690,6 +706,11 @@ void THMConsolidation<dim>::output_results(const unsigned int time_step) const
                            DataOut<dim>::type_dof_data,
                            data_component_interpretation);
   data_out.build_patches();
+  std::ofstream time_file ("time.txt",std::ios::app);
+  double value       = current_time_;
+    //myfile.write (*conversion, strlen (conversion));
+  time_file <<value<<"\n";
+  time_file.close();
 
   std::ofstream output(
     "outputfiles/solution-" + Utilities::int_to_string(time_step, 2) + ".vtk");
@@ -715,27 +736,54 @@ void THMConsolidation<dim>::run()
     VectorTools::interpolate(dof_handler_, pressure_initial,
                              solution_, pressure);
   }
-  output_results(0);
+  output_results(0,0);
   timer_grid.stop();
   std::cout << "Initialize mesh and initial conditions: " << timer_grid.cpu_time() << "s" << std::endl;
+  first_step_=gamma_w*(model_length_/subdivision_)*(model_length_/subdivision_)/(6*2*mu_in_*k_in_);
+  step_torr_=1e-2*pressure_in_*std::sqrt(system_rhs_.size());
+  current_time_=0;
+  double err=pressure_in_*std::sqrt(system_rhs_.size())+1;
+  old_solution_=0;
+  for(unsigned step = 1; err>1e-5*pressure_in_*std::sqrt(system_rhs_.size()) ; ++step) {
+    if (step==1) {
+      time_step_=first_step_;
+    }
 
-  for(unsigned step = 1; step <= max_steps_; ++step) {
 
     Timer timer_assembler;
-    assemble_system(step);
+    assemble_system();
     timer_assembler.stop();
     std::cout << "Step: "<<step<<", assembler: " << timer_assembler.cpu_time() << "s" << std::endl;
-
+  
     Timer timer_solver;
-    solve();
+    solve(step);
     timer_solver.stop();
     std::cout << "Step: "<<step<<", solver: " << timer_solver.cpu_time() << "s" << std::endl;
+    solution_var_=old_solution_;
+    solution_var_-=solution_;
+    std::cout<<solution_var_.l2_norm()<<" norm"<<std::endl;
+    std::cout<<time_step_<<" adaptive_time_step"<<std::endl;
+    current_time_+=time_step_;
+    std::cout<<current_time_<<" current_time"<<std::endl;
+    old_solution_=solution_; 
+    if (step>1){
+      err=solution_var_.l2_norm();
+    }
+    // std::cout<<err<<" err"<<std::endl;
+    // std::cout<<1e-2*pressure_in_*std::sqrt(system_rhs_.size())<<" err1"<<std::endl;
+    
+
 
     Timer timer_out;
-    output_results(step);
+    output_results(step,current_time_);
     timer_out.stop();
     std::cout << "Step: "<<step<<", output vtk files: " << timer_out.cpu_time() << "s" << std::endl;
-
+    if (err<step_torr_/2){
+      time_step_*=5;
+    }
+    else if (err>step_torr_*2){
+      time_step_/=5;
+    }
   }
 
 }
