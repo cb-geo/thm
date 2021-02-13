@@ -63,6 +63,7 @@
 #include <deal.II/numerics/vector_tools.h>
 
 #include "interpolation.h"
+#include "mesh_reader.h"
 
 using namespace dealii;
 
@@ -107,9 +108,10 @@ class CoupledTH {
   unsigned int timestep_number;  // n_t
   std::vector<double> time_sequence;
 
-  double period;
+  double total_time;
   int n_time_step;
   double time_step;
+  double period;
 
   unsigned int P_iteration_namber;
   unsigned int T_iteration_namber;
@@ -118,7 +120,9 @@ class CoupledTH {
   double P_tol_residual = EquationData::g_P_tol_residual;
   double T_tol_residual = EquationData::g_T_tol_residual;
 
-  Interpolation<3> data_interpolation;
+  Interpolation<3> perm_interpolation;
+  Interpolation<3> therm_interpolation;
+  Interpolation<3> capa_interpolation;
 
   MPI_Comm mpi_communicator;
   const unsigned int n_mpi_processes;
@@ -127,6 +131,9 @@ class CoupledTH {
 
   IndexSet locally_owned_dofs;
   IndexSet locally_relevant_dofs;
+
+  //***lineBC select the dof that are on the line with Dirichlet BC
+  std::map<types::global_dof_index, double> line_bc_dof_value_map;
 };
 
 template <int dim>
@@ -139,6 +146,7 @@ CoupledTH<dim>::CoupledTH(const unsigned int degree)  // initialization
       face_quadrature_formula(degree + 1),
       time(0.0),
       timestep_number(0),
+      period(EquationData::g_period),
       T_iteration_namber(0),
       P_iteration_namber(0),
       mpi_communicator(MPI_COMM_WORLD),
@@ -146,18 +154,24 @@ CoupledTH<dim>::CoupledTH(const unsigned int degree)  // initialization
       this_mpi_process(Utilities::MPI::this_mpi_process(mpi_communicator)),
       pcout(std::cout,
             (this_mpi_process == 0)),  // output the results at process 0
-      data_interpolation(EquationData::dimension_x, EquationData::dimension_y,
+      perm_interpolation(EquationData::dimension_x, EquationData::dimension_y,
                          EquationData::dimension_z,
-                         EquationData::file_name_interpolation) {
+                         EquationData::perm_file_name_interpolation),
+      therm_interpolation(EquationData::dimension_x, EquationData::dimension_y,
+                          EquationData::dimension_z,
+                          EquationData::therm_file_name_interpolation),
+      capa_interpolation(EquationData::dimension_x, EquationData::dimension_y,
+                         EquationData::dimension_z,
+                         EquationData::capa_file_name_interpolation) {
   if (EquationData::is_linspace) {
-    period = EquationData::g_period;
+    total_time = EquationData::g_total_time;
     n_time_step = EquationData::g_n_time_step;
-    time_sequence = linspace(0.0, period, n_time_step);
+    time_sequence = linspace(0.0, total_time, n_time_step);
     time_step = time_sequence[1] - time_sequence[0];
   } else {
     time_sequence = EquationData::g_time_sequence;
     n_time_step = time_sequence.size();
-    period = time_sequence[n_time_step - 1];
+    total_time = time_sequence[n_time_step - 1];
     time_step = time_sequence[1] - time_sequence[0];
   }
 }
@@ -172,7 +186,7 @@ void CoupledTH<dim>::make_grid() {
 
   GridIn<dim> gridin;  // instantiate a gridinput
   gridin.attach_triangulation(triangulation);
-  std::ifstream f("inputfiles/denseisland.msh");
+  std::ifstream f(EquationData::mesh_file_name);
   gridin.read_msh(f);
   // print_mesh_info(triangulation, "outputfiles/grid-1.eps");
   // triangulation.refine_global(1);
@@ -212,6 +226,50 @@ void CoupledTH<dim>::setup_system() {
   P_solution.reinit(dof_handler.n_dofs());
   old_P_solution.reinit(dof_handler.n_dofs());
   timer.tock("dof_handler");
+  pcout << "\n" << std::endl << std::endl;
+
+  //***lineBC select the dof that are on the line with Dirichlet BC
+  // Find the coordinates of vertices that are on the interior boundary line
+  std::unique_ptr<MeshReader> mesh_reader(new MeshReader);
+  mesh_reader->read_mesh(EquationData::mesh_file_with_line_name, EquationData::interior_line_file_name);
+  std::vector<std::vector<double>> interior_line_vertices = mesh_reader->interior_line_vertices();
+  std::cout<<"Number of vertices on interior line: "<<interior_line_vertices.size()<<std::endl;
+  // Find the dof on the interior line by comparing the coords of vertices of cells with above found vertices
+  line_bc_dof_value_map.clear();
+  std::vector<types::global_dof_index> line_bc_dof_vec;
+  typename DoFHandler<dim>::active_cell_iterator cell_iter = dof_handler.begin_active();
+  typename DoFHandler<dim>::active_cell_iterator cell_iter_end = dof_handler.end();
+  for(; cell_iter != cell_iter_end; ++cell_iter) {
+    if(cell_iter->is_locally_owned()) {
+      // For each vertex of the cell
+      for(unsigned i = 0; i < 8; ++i) {
+        types::global_dof_index vert_dof = cell_iter->vertex_dof_index(i,0);
+        unsigned vert_id = cell_iter->vertex_index(i);
+        auto vert_coords = cell_iter->vertex(i);
+        bool is_iline_vert = false;
+        // if this vertex is on the interior line, add it into the map
+        for(auto iline_coords : interior_line_vertices) {
+          if((std::abs(vert_coords[0]-iline_coords.at(0)) < 1e-7) && (std::abs(vert_coords[1]-iline_coords.at(1)) < 1e-7) && (std::abs(vert_coords[2]-iline_coords.at(2)) < 1e-7)) {
+            is_iline_vert = true;
+            break;
+          }
+        }
+        if(is_iline_vert) line_bc_dof_vec.push_back(vert_dof);
+      }
+    }
+  }
+
+  // Remove duplicates
+  std::sort(line_bc_dof_vec.begin(), line_bc_dof_vec.end());
+  line_bc_dof_vec.erase(std::unique(line_bc_dof_vec.begin(), line_bc_dof_vec.end()), line_bc_dof_vec.end());
+  for(auto dof : line_bc_dof_vec) {
+    std::pair<types::global_dof_index, double> dof_value = std::make_pair(dof, (273.15+30));
+    line_bc_dof_value_map.emplace(dof_value);
+  }
+
+std::cout<<"line_bc_dof_value_map size(): "<<line_bc_dof_value_map.size()<<", dof: ";
+for(auto dof : line_bc_dof_value_map) std::cout<<dof.first<<", ";
+std::cout<<std::endl;
 }
 
 template <int dim>
@@ -292,13 +350,10 @@ void CoupledTH<dim>::assemble_P_system() {
       for (unsigned int q = 0; q < n_q_points; ++q) {
 
         const auto P_quadrature_coord = fe_values.quadrature_point(q);
-        // EquationData::g_perm = interpolate1d(
-        //     EquationData::g_perm_list, P_quadrature_coord[2], false);  //
-        //     step-5
 
-        EquationData::g_perm = data_interpolation.value(P_quadrature_coord[0],
-                                                        P_quadrature_coord[1],
-                                                        P_quadrature_coord[2]);
+        //***EquationData::g_perm = perm_interpolation.value(P_quadrature_coord[0],
+        //                                                P_quadrature_coord[1],
+        //                                                P_quadrature_coord[2]);
 
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           const Tensor<1, dim> grad_phi_i_P = fe_values.shape_grad(i, q);
@@ -321,38 +376,38 @@ void CoupledTH<dim>::assemble_P_system() {
       }
 
       // APPLIED NEWMAN BOUNDARY CONDITION
-      for (unsigned int face_no = 0;
-           face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
-        if (cell->at_boundary(face_no)) {
-          for (int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id; ++bd_i) {
+      if (EquationData::g_num_QP_bnd_id != 0) {
+        for (unsigned int face_no = 0;
+             face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
+          if (cell->at_boundary(face_no)) {
+            for (int bd_i = 0; bd_i < EquationData::g_num_QP_bnd_id; ++bd_i) {
 
-            if (cell->face(face_no)->boundary_id() ==
-                EquationData::g_QP_bnd_id[bd_i]) {
-              fe_face_values.reinit(cell, face_no);
+              if (cell->face(face_no)->boundary_id() ==
+                  EquationData::g_QP_bnd_id[bd_i]) {
+                fe_face_values.reinit(cell, face_no);
 
-              // get boundary condition
-              QP_boundary.get_bd_i(bd_i);
-              QP_boundary.set_time(time);
-              QP_boundary.set_boundary_id(*(EquationData::g_QP_bnd_id + bd_i));
-              QP_boundary.value_list(fe_face_values.get_quadrature_points(),
-                                     QP_bd_values);
+                // get boundary condition
+                QP_boundary.get_bd_i(bd_i);
+                QP_boundary.set_time(time);
+                QP_boundary.set_boundary_id(
+                    *(EquationData::g_QP_bnd_id + bd_i));
+                QP_boundary.value_list(fe_face_values.get_quadrature_points(),
+                                       QP_bd_values);
 
-              for (unsigned int q = 0; q < n_face_q_points; ++q) {
+                for (unsigned int q = 0; q < n_face_q_points; ++q) {
 
-                const auto P_face_quadrature_coord =
-                    fe_face_values.quadrature_point(q);
-                // EquationData::g_perm =
-                //     interpolate1d(EquationData::g_perm_list,
-                //                   P_face_quadrature_coord[2], false);  //
-                //                   step-5
-                EquationData::g_perm = data_interpolation.value(
-                    P_face_quadrature_coord[0], P_face_quadrature_coord[1],
-                    P_face_quadrature_coord[2]);
+                  const auto P_face_quadrature_coord =
+                      fe_face_values.quadrature_point(q);
 
-                for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-                  P_local_rhs(i) += -time_step * EquationData::g_B_w *
-                                    (fe_face_values.shape_value(i, q) *
-                                     QP_bd_values[q] * fe_face_values.JxW(q));
+                  //***EquationData::g_perm = perm_interpolation.value(
+                  //    P_face_quadrature_coord[0], P_face_quadrature_coord[1],
+                  //    P_face_quadrature_coord[2]);
+
+                  for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+                    P_local_rhs(i) += -time_step * EquationData::g_B_w *
+                                      (fe_face_values.shape_value(i, q) *
+                                       QP_bd_values[q] * fe_face_values.JxW(q));
+                  }
                 }
               }
             }
@@ -398,6 +453,7 @@ void CoupledTH<dim>::assemble_P_system() {
     }
   }
   timer.tock("assemble_P_system");
+  pcout << "\n" << std::endl << std::endl;
 }
 
 template <int dim>
@@ -476,10 +532,15 @@ void CoupledTH<dim>::assemble_T_system() {
         // EquationData::g_perm = interpolate1d(
         //     EquationData::g_perm_list, T_quadrature_coord[2], false);  //
         //     step-5
-        EquationData::g_perm = data_interpolation.value(T_quadrature_coord[0],
+        EquationData::g_perm = perm_interpolation.value(T_quadrature_coord[0],
                                                         T_quadrature_coord[1],
                                                         T_quadrature_coord[2]);
-
+        EquationData::g_lam = therm_interpolation.value(T_quadrature_coord[0],
+                                                        T_quadrature_coord[1],
+                                                        T_quadrature_coord[2]);
+        EquationData::g_c_T = capa_interpolation.value(T_quadrature_coord[0],
+                                                       T_quadrature_coord[1],
+                                                       T_quadrature_coord[2]);
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           const Tensor<1, dim> grad_phi_i_T = fe_values.shape_grad(i, q);
           const double phi_i_T = fe_values.shape_value(i, q);
@@ -506,38 +567,43 @@ void CoupledTH<dim>::assemble_T_system() {
       }
 
       // APPLIED NEUMAN BOUNDARY CONDITION
+      if (EquationData::g_num_QT_bnd_id != 0) {
+        for (unsigned int face_no = 0;
+             face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
+          if (cell->at_boundary(face_no)) {
+            for (int bd_i = 0; bd_i < EquationData::g_num_QT_bnd_id; ++bd_i) {
+              if (cell->face(face_no)->boundary_id() ==
+                  EquationData::g_QT_bnd_id[bd_i]) {
+                fe_face_values.reinit(cell, face_no);
 
-      for (unsigned int face_no = 0;
-           face_no < GeometryInfo<dim>::faces_per_cell; ++face_no) {
-        if (cell->at_boundary(face_no)) {
-          for (int bd_i = 0; bd_i < EquationData::g_num_QT_bnd_id; ++bd_i) {
-            if (cell->face(face_no)->boundary_id() ==
-                EquationData::g_QT_bnd_id[bd_i]) {
-              fe_face_values.reinit(cell, face_no);
+                // get boundary condition
+                QT_boundary.get_bd_i(bd_i);
+                QT_boundary.set_time(time);
+                QT_boundary.set_boundary_id(
+                    *(EquationData::g_QT_bnd_id + bd_i));
+                QT_boundary.value_list(fe_face_values.get_quadrature_points(),
+                                       QT_bd_values);
 
-              // get boundary condition
-              QT_boundary.get_bd_i(bd_i);
-              QT_boundary.set_time(time);
-              QT_boundary.set_boundary_id(*(EquationData::g_QT_bnd_id + bd_i));
-              QT_boundary.value_list(fe_face_values.get_quadrature_points(),
-                                     QT_bd_values);
+                for (unsigned int q = 0; q < n_face_q_points; ++q) {
 
-              for (unsigned int q = 0; q < n_face_q_points; ++q) {
+                  const auto T_face_quadrature_coord =
+                      fe_face_values.quadrature_point(q);
+                  // EquationData::g_perm =
+                  //     interpolate1d(EquationData::g_perm_list,
+                  //                   T_face_quadrature_coord[2], false);  //
+                  //                   step-5
+                  EquationData::g_perm = perm_interpolation.value(
+                      T_face_quadrature_coord[0], T_face_quadrature_coord[1],
+                      T_face_quadrature_coord[2]);
+                  EquationData::g_c_T = capa_interpolation.value(
+                      T_face_quadrature_coord[0], T_face_quadrature_coord[1],
+                      T_face_quadrature_coord[2]);
 
-                const auto T_face_quadrature_coord =
-                    fe_face_values.quadrature_point(q);
-                // EquationData::g_perm =
-                //     interpolate1d(EquationData::g_perm_list,
-                //                   T_face_quadrature_coord[2], false);  //
-                //                   step-5
-                EquationData::g_perm = data_interpolation.value(
-                    T_face_quadrature_coord[0], T_face_quadrature_coord[1],
-                    T_face_quadrature_coord[2]);
-
-                for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-                  T_local_rhs(i) += -time_step / EquationData::g_c_T *
-                                    fe_face_values.shape_value(i, q) *
-                                    QT_bd_values[q] * fe_face_values.JxW(q);
+                  for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+                    T_local_rhs(i) += -time_step / EquationData::g_c_T *
+                                      fe_face_values.shape_value(i, q) *
+                                      QT_bd_values[q] * fe_face_values.JxW(q);
+                  }
                 }
               }
             }
@@ -563,7 +629,7 @@ void CoupledTH<dim>::assemble_T_system() {
     }
   }
 
-  timer.tock("assemble_T_system_no_DIRICHLET_boundary");
+  // timer.tock("assemble_T_system_no_DIRICHLET_boundary");
   // compress the matrix
   T_system_matrix.compress(VectorOperation::add);
   T_system_rhs.compress(VectorOperation::add);
@@ -573,6 +639,7 @@ void CoupledTH<dim>::assemble_T_system() {
 
     for (int bd_i = 0; bd_i < EquationData::g_num_T_bnd_id; bd_i++) {
       T_boundary.get_bd_i(bd_i);
+      T_boundary.get_period(period);  // for seeting sin function
       T_boundary.set_time(time);
       T_boundary.set_boundary_id(*(EquationData::g_T_bnd_id + bd_i));
       std::map<types::global_dof_index, double> T_bd_values;
@@ -585,12 +652,16 @@ void CoupledTH<dim>::assemble_T_system() {
 
       MatrixTools::apply_boundary_values(T_bd_values, T_system_matrix, tmp,
                                          T_system_rhs, false);
+      //***lineBC
+      MatrixTools::apply_boundary_values(line_bc_dof_value_map, T_system_matrix,
+                                         tmp, T_system_rhs, false);
 
       T_solution = tmp;
     }
   }
 
-  // timer.tock("assemble_T_system");
+  timer.tock("assemble_T_system");
+  pcout << "\n" << std::endl << std::endl;
 }
 
 template <int dim>
@@ -619,6 +690,7 @@ void CoupledTH<dim>::linear_solve_P() {
         << "\n";
 
   timer.tock("linear_solve_P");
+  pcout << "\n" << std::endl << std::endl;
 }
 
 template <int dim>
@@ -651,6 +723,7 @@ void CoupledTH<dim>::linear_solve_T() {
         << "\n";
 
   timer.tock("linear_solve_T");
+  pcout << "\n" << std::endl << std::endl;
 }
 
 // @sect4{<code>CoupledTH::output_results</code>}
@@ -776,7 +849,8 @@ void CoupledTH<dim>::run() {
 
     timestep_number += 1;
 
-    pcout << "\nt=" << time << ", dt=" << time_step << '.' << std::endl;
+    pcout << "\nt=" << time / 3600 / 24 << ", dt=" << time_step << '.'
+          << std::endl;
 
     output_results(T_solution, "T");
     output_results(P_solution, "P");
@@ -791,7 +865,7 @@ void CoupledTH<dim>::run() {
     // T_system_matrix.print_formatted(out_T_matrix);
     // T_system_rhs.print(out);
 
-  } while (time < period);
+  } while (time < total_time);
 
   timer.tock("solve_all");
   pcout << "\n" << std::endl << std::endl;
